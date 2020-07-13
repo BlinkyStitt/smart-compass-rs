@@ -25,6 +25,8 @@ cargo install cargo-hf2
 - <https://github.com/atsamd-rs/atsamd/blob/master/boards/feather_m0/README.md>
 - <https://github.com/atsamd-rs/atsamd>
 - <https://crates.io/crates/cargo-hf2>
+- <https://github.com/smart-leds-rs/smart-leds-samples/blob/master/stm32f0-examples/examples/stm32f0_ws2812_spi_blink.rs>
+- <https://docs.rs/crate/adafruit_gps/0.3.6/source/examples/simple.rs>
 
 ## TODO
 

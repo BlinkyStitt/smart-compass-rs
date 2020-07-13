@@ -7,8 +7,12 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-# cortex-m = "*"
-# cortex-m-semihosting = "*"
-feather_m0 = { version = "*", features = ["panic_semihosting"] }
-# panic_halt = "*"
-# panic_semihosting = "*"
+accelerometer = "0.12"
+adafruit_gps = "0.3"
+# TODO: figure out how to make this work
+# feather_m0 = { version = "0.6", default-features = false, features = ["rt", "atsamd-hal/samd21g18a", "panic_semihosting"] }
+feather_m0 = { version = "0.6", features = ["unproven"] }
+# TODO: this needs updates to match the latest dependencies on feather_m0
+# radio-sx127x = { path = "../rust-radio-sx127x", default-features = false }
+smart-leds = "0.3"
+ws2812-spi = "0.3"
