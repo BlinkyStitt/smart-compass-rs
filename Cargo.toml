@@ -9,10 +9,12 @@ edition = "2018"
 [dependencies]
 accelerometer = "0.12"
 adafruit_gps = "0.3"
-# TODO: figure out how to make this work
+blake2 = { version = "0.9", default-features = false }
+embedded-sdmmc = "0.3"
+# TODO: figure out how to make feather_m0 compile without default-features
 # feather_m0 = { version = "0.6", default-features = false, features = ["rt", "atsamd-hal/samd21g18a", "panic_semihosting"] }
-feather_m0 = { version = "0.6", features = ["unproven"] }
+feather_m0 = { path = "../atsamd/boards/feather_m0", features = ["unproven"] }
 # TODO: this needs updates to match the latest dependencies on feather_m0
-# radio-sx127x = { path = "../rust-radio-sx127x", default-features = false }
+radio-sx127x = { path = "../rust-radio-sx127x", default-features = false }
 smart-leds = "0.3"
 ws2812-spi = "0.3"
