@@ -1,5 +1,20 @@
-use adafruit_gps::gps::{Gps, open_port, GpsSentence};
-use adafruit_gps::send_pmtk::NmeaOutput;
+use serialport::SerialPort;
+
+use adafruit_gps::gps::{Gps, GpsSentence};
+// use adafruit_gps::send_pmtk::NmeaOutput;
+
+struct WrappedUart(());
+
+// TODO: hopefully implementing this will be easy
+impl SerialPort for WrappedUart {
+
+}
+
+pub fn new_gps(uart: ()) -> Gps {
+    let port = WrappedUart(uart);
+
+    Gps { port }
+}
 
 // TODO: the old code read the gps data on a timer. do we want that still?
 // https://github.com/atsamd-rs/atsamd/blob/master/boards/feather_m0/examples/timers.rs
