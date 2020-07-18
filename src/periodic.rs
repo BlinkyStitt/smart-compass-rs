@@ -1,24 +1,31 @@
 //! inspired by EVERY_N_MILLIS in https://github.com/FastLED/FastLED/blob/master/lib8tion.h
 
+/// TODO: what should we call this?
+/// TODO: is usize a good type? maybe usize?
+/// TODO: maybe a custom type so that we can have hz, or ms, or seconds, or minutes, etc.
 pub struct Periodic {
-    previous_trigger: u32,
-    period: u32,
+    previous_trigger: usize,
+    period_ms: usize,
 }
 
 impl Periodic {
-    pub fn new(period: u32) -> Self {
+    pub fn new(period_ms: usize) -> Self {
         Self {
             previous_trigger: 0,
-            period,
+            period_ms,
         }
     }
 
-    pub fn ready(&mut self, now: &u32) -> bool {
-        let is_ready = now - self.previous_trigger >= self.period;
+    pub fn ready(&mut self) -> bool {
+        let now = unsafe {
+            crate::ELAPSED_MS
+        };
+
+        let is_ready = now - self.previous_trigger >= self.period_ms;
 
         if is_ready {
             // TODO: what if this is late?
-            self.previous_trigger = *now;
+            self.previous_trigger = now;
         }
 
         is_ready

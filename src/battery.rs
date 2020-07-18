@@ -25,7 +25,7 @@ impl BatteryStatus {
       
         if measuredvbat < 4.1 {
           //DEBUG_PRINTLN(F("OK"));
-          return Self::Low;
+          return Self::Okay;
         }
       
         //DEBUG_PRINTLN(F("FULL"));
