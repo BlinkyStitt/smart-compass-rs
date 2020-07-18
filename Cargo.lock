@@ -27,6 +27,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "asm-delay"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "bitrate 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cortex-m 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "embedded-hal 0.2.4 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "async-trait"
 version = "0.1.36"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -82,6 +92,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "bitflags"
 version = "1.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "bitrate"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
@@ -167,14 +182,6 @@ dependencies = [
  "quote 1.0.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "rtic-syntax 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "syn 1.0.33 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "cortex-m-semihosting"
-version = "0.3.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-dependencies = [
- "cortex-m 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -468,11 +475,9 @@ name = "smart-compass-v1"
 version = "0.1.0"
 dependencies = [
  "accelerometer 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "asm-delay 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "blake2 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "cortex-m 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "cortex-m-rt 0.6.12 (registry+https://github.com/rust-lang/crates.io-index)",
  "cortex-m-rtic 0.5.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "cortex-m-semihosting 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "embedded-hal 0.2.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "embedded-sdmmc 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "embedded-spi 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -568,11 +573,13 @@ dependencies = [
 "checksum accelerometer 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)" = "1a4586d95cb0695e748760c9a751141eebb68265b1b20392a0f14db608679f7a"
 "checksum aligned 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)" = "eb1ce8b3382016136ab1d31a1b5ce807144f8b7eb2d5f16b2108f0f07edceb94"
 "checksum as-slice 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)" = "37dfb65bc03b2bc85ee827004f14a6817e04160e3b1a28931986a666a9290e70"
+"checksum asm-delay 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)" = "b9a69a963b70ddacfcd382524f72a4576f359af9334b3bf48a79566590bb8bfa"
 "checksum async-trait 0.1.36 (registry+https://github.com/rust-lang/crates.io-index)" = "a265e3abeffdce30b2e26b7a11b222fe37c6067404001b434101457d0385eb92"
 "checksum autocfg 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "f8aac770f1885fd7e387acedd76065302551364496e46b3dd00860b2f8359b9d"
 "checksum bare-metal 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)" = "5deb64efa5bd81e31fcd1938615a6d98c82eafcbcd787162b6f63b91d6bac5b3"
 "checksum bitfield 0.13.2 (registry+https://github.com/rust-lang/crates.io-index)" = "46afbd2983a5d5a7bd740ccb198caf5b82f45c40c09c0eed36052d91cb92e719"
 "checksum bitflags 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "cf1de2fe8c75bc145a2f577add951f8134889b4795d47466a54a5c846d691693"
+"checksum bitrate 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "c147d86912d04bef727828fda769a76ca81629a46d8ba311a8d58a26aa91473d"
 "checksum blake2 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)" = "84ce5b6108f8e154604bd4eb76a2f726066c3464d5a552a4229262a18c9bb471"
 "checksum byte-tools 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)" = "e3b5ca7a04898ad4bcd41c90c5285445ff5b791899bb1b0abdd2a2aa791211d7"
 "checksum bytemuck 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "37fa13df2292ecb479ec23aa06f4507928bef07839be9ef15281411076629431"
@@ -583,7 +590,6 @@ dependencies = [
 "checksum cortex-m-rt-macros 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)" = "4717562afbba06e760d34451919f5c3bf3ac15c7bb897e8b04862a7428378647"
 "checksum cortex-m-rtic 0.5.3 (registry+https://github.com/rust-lang/crates.io-index)" = "04cd388b154c7e7d212c5af7541ee1f174f29ccb0c22e9117f8d13a5aad233b6"
 "checksum cortex-m-rtic-macros 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)" = "29e29e01b3ec80d59bfd96aaf94d04008bebfde3ab7016e12bfbd6c0b466d22a"
-"checksum cortex-m-semihosting 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)" = "113ef0ecffee2b62b58f9380f4469099b30e9f9cbee2804771b4203ba1762cfa"
 "checksum crypto-mac 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)" = "b584a330336237c1eecd3e94266efb216c56ed91225d634cb2991c5f3fd1aeab"
 "checksum digest 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)" = "d3dd60d1080a57a05ab032377049e0591415d2b31afd7028356dbf3cc6dcb066"
 "checksum embedded-hal 0.2.4 (registry+https://github.com/rust-lang/crates.io-index)" = "fa998ce59ec9765d15216393af37a58961ddcefb14c753b4816ba2191d865fcb"
