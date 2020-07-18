@@ -10,9 +10,12 @@ edition = "2018"
 accelerometer = "0.12"
 blake2 = { version = "0.9", default-features = false }
 embedded-sdmmc = "0.3"
+# TODO: figure out how to make feather_m0 compile without default-features
+# feather_m0 = { version = "0.6", default-features = false, features = ["rt", "atsamd-hal/samd21g18a", "panic_semihosting"] }
 feather_m0 = { path = "../atsamd/boards/feather_m0", features = ["unproven"] }
 # TODO: this needs updates to match the latest dependencies on feather_m0
 radio-sx127x = { path = "../rust-radio-sx127x", default-features = false }
+cortex-m-rtic = "0.5"
 smart-leds = "0.3"
 # make sure ws2812 crate uses the same smart-leds-trait crate as smart-leds
 ws2812-nop-samd21 = "0.3"
