@@ -1,7 +1,7 @@
 pub enum BatteryStatus {
     Dead,
     Low,
-    OK,
+    Okay,
     Full,
 }
 

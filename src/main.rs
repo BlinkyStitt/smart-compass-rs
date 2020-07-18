@@ -26,12 +26,9 @@ mod sd;
 
 static MAX_PEERS: u8 = 5;
 static NETWORK_OFFSET: u16 = 125 + 225;
+static DEFAULT_BRIGHTNESS: u8 = 128;
 
-// TODO: someone has to have a helper for millis()
 static mut ELAPSED_MS: u32 = 0;
-static mut BATTERY_STATUS: battery::BatteryStatus = battery::BatteryStatus::Full;
-// rotating "base color" used by some patterns
-static mut G_HUE: u8 = 0;
 
 
 /// TODO: way too much cargo culting happening here. i'm just copy/pasting. figure out WHY these ethings are what they are
@@ -142,26 +139,60 @@ fn main() -> ! {
     // TODO: this requires std::io!
     // let gps = location::new_gps(uart);
 
-    leds.write(brightness(gamma(light_data.iter().cloned()), 32)).unwrap();
-
     let mut every_300_seconds = periodic::Periodic::new(300 * 1000);
+
+    // full brightness of 255 is WAY too bright
+    let mut g_brightness = DEFAULT_BRIGHTNESS;
+    // rotating "base color" used by some patterns
+    static mut g_hue: u8 = 0;
 
     // main loop
     loop {
         unsafe {
             if every_300_seconds.ready(&ELAPSED_MS) {
-                // TODO: check the battery
-    
-                // set the brightness based on the battery level
+                // TODO: set the brightness based on the battery level
+                // TODO: is rounding here okay?
+                match battery::BatteryStatus::check() {
+                    battery::BatteryStatus::Dead => {
+                        g_brightness = DEFAULT_BRIGHTNESS / 2;
+                    },
+                    battery::BatteryStatus::Low => {
+                        g_brightness = DEFAULT_BRIGHTNESS / 4 * 3;
+                    },
+                    battery::BatteryStatus::Okay => {
+                        g_brightness = DEFAULT_BRIGHTNESS / 10 * 9;
+                    },
+                    battery::BatteryStatus::Full => {
+                        g_brightness = DEFAULT_BRIGHTNESS;
+                    },
+                }
             }
         }
 
-        // delay.delay_ms(200u8);
-        // red_led.set_high().unwrap();
+        // TODO: get orientation
 
-        // delay.delay_ms(200u8);
-        // red_led.set_low().unwrap();
-        // lights.write(light_data_off.iter().cloned()).unwrap();
+        // TODO: get location from the GPS
+
+        // TODO: different drawing based on the orientation
+        lights::draw(&mut leds, &light_data, g_brightness).unwrap();
+
+        // TODO: if we have GPS data, 
+        if false {
+            // TODO: get the time from the GPS
+
+            // TODO: get the time_segment_id
+
+            // TODO: get the broadcasting_peer_id and broadcasted_peer_id
+
+            // TODO: radio transmit or receive depending on the time_segment_id
+        } else {
+            // TODO: radio receive
+        }
+
+        // TODO: different drawing based on the orientation
+        lights::draw(&mut leds, &light_data, g_brightness).unwrap();
+
+        // TODO: fastLED.delay equivalent to improve brightness
     }
 }
 
