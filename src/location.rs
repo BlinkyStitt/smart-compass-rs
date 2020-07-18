@@ -1,19 +1,20 @@
-use serialport::SerialPort;
-
-use adafruit_gps::gps::{Gps, GpsSentence};
+// TODO: the adafruit_gps crate requires std::io! looks like we need to roll our own
+// use adafruit_gps::gps::{Gps, GpsSentence};
 // use adafruit_gps::send_pmtk::NmeaOutput;
+use crate::Uart;
 
-struct WrappedUart(());
-
-// TODO: hopefully implementing this will be easy
-impl SerialPort for WrappedUart {
-
+pub struct Gps {
+    uart: Uart
 }
 
-pub fn new_gps(uart: ()) -> Gps {
-    let port = WrappedUart(uart);
+impl Gps {
+    pub fn new(uart: Uart) -> Self {
+        Gps { uart }
+    }
 
-    Gps { port }
+    pub fn read(&mut self) {
+        todo!()
+    }
 }
 
 // TODO: the old code read the gps data on a timer. do we want that still?

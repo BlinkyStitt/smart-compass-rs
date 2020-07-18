@@ -31,7 +31,7 @@ where
         // TODO: what config?
         let config = Config::default();
 
-        let radio = Sx127x::spi(spi, cs, busy, ready, reset, delay, &config).unwrap_or_else(|_| panic!());
+        let radio = Sx127x::spi(spi, cs, busy, ready, reset, delay, &config).ok().unwrap();
 
         Self {
             radio

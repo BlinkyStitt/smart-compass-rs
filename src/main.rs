@@ -8,7 +8,8 @@ mod battery;
 mod compass;
 mod config;
 mod lights;
-// mod location;
+mod location;
+mod mutex;
 mod network;
 mod periodic;
 mod sd;
@@ -22,10 +23,17 @@ use hal::clock::GenericClockController;
 use rtic::app;
 
 // TODO: this is a big type
-type Spi = hal::sercom::SPIMaster4<
+pub type Spi = hal::sercom::SPIMaster4<
     hal::sercom::Sercom4Pad0<hal::gpio::Pa12<hal::gpio::PfD>>,
     hal::sercom::Sercom4Pad2<hal::gpio::Pb10<hal::gpio::PfD>>,
     hal::sercom::Sercom4Pad3<hal::gpio::Pb11<hal::gpio::PfD>>
+>;
+
+pub type Uart = hal::sercom::UART0<
+    hal::sercom::Sercom0Pad3<hal::gpio::Pa11<hal::gpio::PfC>>,
+    hal::sercom::Sercom0Pad2<hal::gpio::Pa10<hal::gpio::PfC>>,
+    (),
+    ()
 >;
 
 type SpiMutexInner = core::cell::RefCell<Spi>;
@@ -61,6 +69,7 @@ const APP: () = {
     struct Resources {
         every_300_seconds: periodic::Periodic,
         lights: lights::Lights<hal::gpio::Pa15<hal::gpio::Output<hal::gpio::PushPull>>>,
+        gps: location::Gps,
         radio: SpiRadio,
         red_led: hal::gpio::Pa17<hal::gpio::Output<hal::gpio::OpenDrain>>,
         timer3: hal::timer::TimerCounter3,
@@ -78,6 +87,14 @@ const APP: () = {
             unsafe {
                 ELAPSED_MS += 1;
             }
+        }
+    }
+
+    // TODO: low priority?
+    #[task(binds = TC4, resources = [timer4, gps])]
+    fn tc4(c: tc4::Context) {
+        if c.resources.timer4.wait().is_ok() {
+            c.resources.gps.read();
         }
     }
 
@@ -110,27 +127,17 @@ const APP: () = {
             &mut device.PM,
         );
 
-        // timer for ELAPSED_MILLIS
-        timer3.start(1.ms());
-        timer3.enable_interrupt();
-
-        // timer for reading serial connected to GPS
-        timer4.start(10.hz());
-        timer4.enable_interrupt();
-
-        // TODO: interrupts for reading from the radio?
-
         // setup all the pins
         // TODO: should we use into_push_pull_output or into_open_drain_output?
         // already wired for us
-        let mut rfm95_int = pins.d3.into_pull_down_input(&mut pins.port);
+        let rfm95_int = pins.d3.into_pull_down_input(&mut pins.port);
         // already wired for us
-        let mut rfm95_rst = pins.d4.into_push_pull_output(&mut pins.port);
+        let rfm95_rst = pins.d4.into_push_pull_output(&mut pins.port);
         let led_data = pins.d5.into_push_pull_output(&mut pins.port);
         // TODO: this pin doesn't actually connect to the radio. is this input type right?
-        let mut rfm95_busy_fake = pins.d6.into_pull_down_input(&mut pins.port);
+        let rfm95_busy_fake = pins.d6.into_pull_down_input(&mut pins.port);
         // already wired for us
-        let mut rfm95_cs = pins.d8.into_push_pull_output(&mut pins.port);
+        let rfm95_cs = pins.d8.into_push_pull_output(&mut pins.port);
         // already wired for us
         // let mut vbat_pin = pins.d9.into_floating_input(&mut pins.port); // also analog
         // let mut sdcard_cs = pins.d10.into_push_pull_output(&mut pins.port);
@@ -165,8 +172,12 @@ const APP: () = {
             }
         };
 
+        // TODO: setup sd card
+
         // setup the radio
         let my_radio = network::Radio::new(spi_bus.acquire(), rfm95_cs, rfm95_busy_fake, rfm95_int, rfm95_rst, delay);
+
+        // TODO: setup compass/orientation sensor
 
         // setup serial for communicating with the gps module
         // TOOD: SERCOM0 or SERCOM1?
@@ -181,38 +192,30 @@ const APP: () = {
             &mut pins.port,
         );
 
+        let my_gps = location::Gps::new(my_uart);
+
         // create lights
         let my_lights = lights::Lights::new(led_data, DEFAULT_BRIGHTNESS, FRAMES_PER_SECOND);
-
-        // TODO: setup setup gps
-        // TODO: the adafruit_gps crate requires std::io! looks like we need to roll our own
-        // let gps = location::new_gps(uart);
 
         // TODO: use rtic's periodic tasks instead of our own
         // TODO: should this use the rtc?
         let every_300_seconds = periodic::Periodic::new(300 * 1000);
+
+        // timer for ELAPSED_MILLIS
+        timer3.start(1.ms());
+        timer3.enable_interrupt();
+
+        // timer for reading the serial connected to GPS
+        timer4.start(10.hz());
+        timer4.enable_interrupt();
 
         // TODO: should we use into_push_pull_output or into_open_drain_output?
         init::LateResources {
             every_300_seconds,
             lights: my_lights,
             radio: my_radio,
-            // rfm95_int: pins.d3.into_pull_down_input(&mut pins.port),
-            // already wired for us
-            // rfm95_rst: pins.d4.into_push_pull_output(&mut pins.port),
-            // led_data: pins.d5.into_push_pull_output(&mut pins.port),
-            // TODO: this pin doesn't actually connect to the radio. is this input type right?
-            // rfm95_busy_fake: pins.d6.into_pull_down_input(&mut pins.port),
-            // already wired for us
-            // rfm95_cs: pins.d8.into_push_pull_output(&mut pins.port),
-            // already wired for us
-            // vbat_pin: pins.d9.into_floating_input(&mut pins.port), // d9 is also analog
-            // sdcard_cs: pins.d10.into_push_pull_output(&mut pins.port),
-            // lsm9ds1_csag: pins.d11.into_push_pull_output(&mut pins.port),
-            // lsm9ds1_csm: pins.d12.into_push_pull_output(&mut pins.port),          
-            // already wired for us
+            gps: my_gps,
             red_led,
-            // floating_pin: pins.a0.into_floating_input(&mut pins.port),
             timer3,
             timer4,
         }
@@ -222,20 +225,19 @@ const APP: () = {
     // TODO: more of this should probably be done with interrupts
     #[idle(resources = [
         every_300_seconds,
+        gps,
         lights,
         radio,
+        red_led,
     ])]
     fn idle(c: idle::Context) -> ! {
         let every_300_seconds = c.resources.every_300_seconds;
+        let my_gps = c.resources.gps;
         let my_lights = c.resources.lights;
+        let my_radio = c.resources.radio;
+        let red_led = c.resources.red_led;
 
-        // TODO: setup radio
-        // TODO: what should delay be?
-        // TODO: i think that we need shared-bus to share the spi
-
-        // TODO: setup compass/orientation sensor
-        // TODO: setup sd card
-
+        red_led.set_high().unwrap();
 
         loop {
             if every_300_seconds.ready() {
