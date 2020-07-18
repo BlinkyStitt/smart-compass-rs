@@ -1,10 +1,10 @@
-use embedded_hal::blocking::delay::DelayMs;
-use embedded_hal::blocking::spi::{Transfer, Write};
-use embedded_hal::digital::v2::{InputPin, OutputPin};
-use embedded_spi::wrapper::{Wrapper as SpiWrapper};
+use feather_m0::prelude::*;
 use radio_sx127x::prelude::*;
 
-use feather_m0::cortex_m::hal
+// TOODO: get this from radio_sx127x
+use embedded_spi::wrapper::{Wrapper as SpiWrapper};
+
+// use feather_m0::cortex_m::hal
 
 pub struct Radio<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay> {
     radio: Sx127x<SpiWrapper<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay>, SpiError, PinError>,
@@ -13,12 +13,12 @@ pub struct Radio<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, De
 impl<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay>
     Radio<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay>
 where
-    Spi: Transfer<u8, Error = SpiError> + Write<u8, Error = SpiError>,
-    CsPin: OutputPin<Error = PinError>,
-    BusyPin: InputPin<Error = PinError>,
+    Spi: _embedded_hal_blocking_spi_Transfer<u8, Error = SpiError> + _embedded_hal_blocking_spi_Write<u8, Error = SpiError>,
+    CsPin: _atsamd_hal_embedded_hal_digital_v2_OutputPin<Error = PinError>,
+    BusyPin: _atsamd_hal_embedded_hal_digital_v2_InputPin<Error = PinError>,
     // TODO: should ReadyPin have a where?
-    ResetPin: OutputPin<Error = PinError>,
-    Delay: DelayMs<u32>,
+    ResetPin: _atsamd_hal_embedded_hal_digital_v2_OutputPin<Error = PinError>,
+    Delay: _embedded_hal_blocking_delay_DelayMs<u32>,
 {
     pub fn new(
         spi: Spi,
@@ -26,12 +26,10 @@ where
         busy: BusyPin,
         ready: ReadyPin,
         reset: ResetPin,
+        delay: Delay,
     ) -> Self {
         // TODO: what config?
         let config = Config::default();
-
-        // TODO: i don't know what to pass here
-        let delay = Default::default();
 
         let radio = Sx127x::spi(spi, cs, busy, ready, reset, delay, &config).unwrap_or_else(|_| panic!());
 

@@ -65,17 +65,17 @@ fn main() -> ! {
     // already wired for us
     let mut rfm95_int = pins.d3.into_pull_down_input(&mut pins.port);
     // already wired for us
-    let mut rfm95_rst = pins.d4.into_open_drain_output(&mut pins.port);
-    let mut led_data = pins.d5.into_open_drain_output(&mut pins.port);
+    let mut rfm95_rst = pins.d4.into_push_pull_output(&mut pins.port);
+    let mut led_data = pins.d5.into_push_pull_output(&mut pins.port);
     // TODO: this pin doesn't actually connect to the radio. is this input type right?
     let mut rfm95_busy_fake = pins.d6.into_pull_down_input(&mut pins.port);
     // already wired for us
-    let mut rfm95_cs = pins.d8.into_open_drain_output(&mut pins.port);
+    let mut rfm95_cs = pins.d8.into_push_pull_output(&mut pins.port);
     // already wired for us
     let mut vbat_pin = pins.d9.into_floating_input(&mut pins.port); // also analog
-    let mut sdcard_cs = pins.d10.into_open_drain_output(&mut pins.port);
-    let mut lsm9ds1_csag = pins.d11.into_open_drain_output(&mut pins.port);
-    let mut lsm9ds1_csm = pins.d12.into_open_drain_output(&mut pins.port);
+    let mut sdcard_cs = pins.d10.into_push_pull_output(&mut pins.port);
+    let mut lsm9ds1_csag = pins.d11.into_push_pull_output(&mut pins.port);
+    let mut lsm9ds1_csm = pins.d12.into_push_pull_output(&mut pins.port);
     // already wired for us
     let mut red_led = pins.d13.into_open_drain_output(&mut pins.port);
     let mut floating_pin = pins.a0.into_floating_input(&mut pins.port);
@@ -106,11 +106,14 @@ fn main() -> ! {
     );
 
     // create lights
-    let mut my_lights = lights::Lights::new(my_spi, DEFAULT_BRIGHTNESS, FRAMES_PER_SECOND);
+    // TODO: 
+    let mut my_lights = lights::Lights::new(led_data, DEFAULT_BRIGHTNESS, FRAMES_PER_SECOND);
+
+    // let delay = hal::delay::Delay::new(core.SYST, &mut clocks);
 
     // TODO: setup radio
     // TODO: what should delay be?
-    let mut my_radio = network::Radio::new(my_spi, rfm95_cs, rfm95_busy_fake, rfm95_int, rfm95_rst);
+    // let mut my_radio = network::Radio::new(my_spi, rfm95_cs, rfm95_busy_fake, rfm95_int, rfm95_rst, delay);
 
     // TODO: setup compass/orientation sensor
     // TODO: setup sd card
@@ -152,7 +155,7 @@ fn main() -> ! {
 
         // TODO: get location from the GPS
 
-        my_lights.draw().unwrap();
+        my_lights.draw();
 
         // TODO: if we have a GPS fix, 
         if false {
@@ -168,7 +171,7 @@ fn main() -> ! {
         }
 
         // draw again because the using radio can take a while
-        my_lights.draw().unwrap();
+        my_lights.draw();
 
         // TODO: fastLED.delay equivalent to improve brightness? make sure it doesn't block the radios!
     }

@@ -1,18 +1,18 @@
 mod networked;
 mod patterns;
 
-use feather_m0::prelude::_embedded_hal_spi_FullDuplex;
+use feather_m0::prelude::_atsamd_hal_embedded_hal_digital_v2_OutputPin;
 
 use crate::periodic::Periodic;
 use accelerometer::Orientation;
 use smart_leds::{brightness, gamma, RGB8, SmartLedsWrite};
-use ws2812_spi::Ws2812;
+use ws2812_nop_samd21::Ws2812;
 
 /// TODO: better trait bounds?
-pub struct Lights<SPI: _embedded_hal_spi_FullDuplex<u8>> {
+pub struct Lights<Pin: _atsamd_hal_embedded_hal_digital_v2_OutputPin> {
     brightness: u8,
     framerate: Periodic,
-    lights: Ws2812<SPI>,
+    lights: Ws2812<Pin>,
     orientation: Orientation,
 
     pretty_data: [RGB8; 256],
@@ -20,9 +20,9 @@ pub struct Lights<SPI: _embedded_hal_spi_FullDuplex<u8>> {
     location_data: [RGB8; 256],
 }
 
-impl<SPI: _embedded_hal_spi_FullDuplex<u8>> Lights<SPI> {
-    pub fn new(spi: SPI, brightness: u8, frames_per_second: u8) -> Self {
-        let lights = Ws2812::new(spi);
+impl<Pin: _atsamd_hal_embedded_hal_digital_v2_OutputPin> Lights<Pin> {
+    pub fn new(pin: Pin, brightness: u8, frames_per_second: u8) -> Self {
+        let lights = Ws2812::new(pin);
 
         let pretty_data: [RGB8; 256] = [RGB8::default(); 256];
         let flashlight_data: [RGB8; 256] = [RGB8::default(); 256];
@@ -55,7 +55,7 @@ impl<SPI: _embedded_hal_spi_FullDuplex<u8>> Lights<SPI> {
     }
 
     /// TODO: return the result instead of unwrapping?
-    pub fn draw(&mut self) -> Result<(), SPI::Error> {
+    pub fn draw(&mut self) {
         let my_brightness = self.brightness;
         
         // get the data
@@ -95,7 +95,7 @@ impl<SPI: _embedded_hal_spi_FullDuplex<u8>> Lights<SPI> {
         let data = brightness(data, my_brightness);
 
         // display
-        self.lights.write(data)
+        self.lights.write(data).unwrap();
     }
 }
 
