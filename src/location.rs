@@ -1,14 +1,14 @@
 // TODO: the adafruit_gps crate requires std::io! looks like we need to roll our own
 // use adafruit_gps::gps::{Gps, GpsSentence};
 // use adafruit_gps::send_pmtk::NmeaOutput;
-use crate::UART0;
+use crate::GPSSerial;
 
 pub struct Gps {
-    uart: UART0,
+    uart: GPSSerial,
 }
 
 impl Gps {
-    pub fn new(uart: UART0) -> Self {
+    pub fn new(uart: GPSSerial) -> Self {
         Gps { uart }
     }
 

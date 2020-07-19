@@ -9,10 +9,9 @@ mod compass;
 mod config;
 mod lights;
 mod location;
-mod mutex;
 mod network;
 mod periodic;
-mod sd;
+mod storage;
 
 pub extern crate feather_m0 as hal;
 
@@ -21,27 +20,23 @@ use hal::prelude::*;
 use asm_delay::AsmDelay;
 use hal::clock::GenericClockController;
 use rtic::app;
+use shared_bus_rtic::SharedBus;
 
-pub type SPIMaster4 = hal::sercom::SPIMaster4<
+pub type SPIMaster = hal::sercom::SPIMaster4<
     hal::sercom::Sercom4Pad0<hal::gpio::Pa12<hal::gpio::PfD>>,
     hal::sercom::Sercom4Pad2<hal::gpio::Pb10<hal::gpio::PfD>>,
     hal::sercom::Sercom4Pad3<hal::gpio::Pb11<hal::gpio::PfD>>,
 >;
 
-pub type UART0 = hal::sercom::UART0<
+pub type GPSSerial = hal::sercom::UART0<
     hal::sercom::Sercom0Pad3<hal::gpio::Pa11<hal::gpio::PfC>>,
     hal::sercom::Sercom0Pad2<hal::gpio::Pa10<hal::gpio::PfC>>,
     (),
     (),
 >;
 
-type SpiMutexInner = core::cell::RefCell<SPIMaster4>;
-type SpiMutex = mutex::DummyMutex<SpiMutexInner>;
-pub type SpiBus = shared_bus::BusManager<SpiMutex, SPIMaster4>;
-pub type SpiProxy = shared_bus::proxy::BusProxy<'static, SpiMutex, SPIMaster4>;
-
-type SpiRadio = network::Radio<
-    SpiProxy,
+type SpiRadio<Spi> = network::Radio<
+    Spi,
     hal::sercom::Error,
     hal::gpio::Pa6<hal::gpio::Output<hal::gpio::PushPull>>,
     hal::gpio::Pa20<hal::gpio::Input<hal::gpio::PullDown>>,
@@ -50,6 +45,9 @@ type SpiRadio = network::Radio<
     (),
     asm_delay::AsmDelay,
 >;
+pub struct SharedSPIResources {
+    radio: SpiRadio<SharedBus<SPIMaster>>,
+}
 
 // static globals
 // static MAX_PEERS: u8 = 5;
@@ -60,8 +58,6 @@ static FRAMES_PER_SECOND: u8 = 30;
 
 // TODO: use rtic resources instead
 static mut ELAPSED_MS: usize = 0;
-// Is it possible to use this library with RTIC? - https://github.com/Rahix/shared-bus/issues/4
-static mut SPI_BUS: Option<SpiBus> = None;
 
 #[app(device = hal::pac, peripherals = true)]
 const APP: () = {
@@ -69,7 +65,7 @@ const APP: () = {
         every_300_seconds: periodic::Periodic,
         lights: lights::Lights<hal::gpio::Pa15<hal::gpio::Output<hal::gpio::PushPull>>>,
         gps: location::Gps,
-        radio: SpiRadio,
+        shared_spi_resources: SharedSPIResources,
         red_led: hal::gpio::Pa17<hal::gpio::Output<hal::gpio::OpenDrain>>,
         timer3: hal::timer::TimerCounter3,
         timer4: hal::timer::TimerCounter4,
@@ -111,6 +107,7 @@ const APP: () = {
         let gclk0 = clocks.gclk0();
         let mut pins = hal::Pins::new(device.PORT);
 
+        // TODO: rtic doesn't expose SYST
         // let delay = hal::delay::Delay::new(device.SYST, &mut clocks);
         let delay = AsmDelay::new(asm_delay::bitrate::U32BitrateExt::mhz(48));
 
@@ -126,6 +123,8 @@ const APP: () = {
             &mut device.PM,
         );
 
+        // TODO: timer5?
+
         // setup all the pins
         // TODO: should we use into_push_pull_output or into_open_drain_output?
         // already wired for us
@@ -138,17 +137,17 @@ const APP: () = {
         // already wired for us
         let rfm95_cs = pins.d8.into_push_pull_output(&mut pins.port);
         // already wired for us
-        // let mut vbat_pin = pins.d9.into_floating_input(&mut pins.port); // also analog
-        // let mut sdcard_cs = pins.d10.into_push_pull_output(&mut pins.port);
-        // let mut lsm9ds1_csag = pins.d11.into_push_pull_output(&mut pins.port);
-        // let mut lsm9ds1_csm = pins.d12.into_push_pull_output(&mut pins.port);
+        // let vbat_pin = pins.d9.into_floating_input(&mut pins.port); // also analog
+        let sdcard_cs = pins.d10.into_push_pull_output(&mut pins.port);
+        // let lsm9ds1_csag = pins.d11.into_push_pull_output(&mut pins.port);
+        // let lsm9ds1_csm = pins.d12.into_push_pull_output(&mut pins.port);
         // already wired for us
         let red_led = pins.d13.into_open_drain_output(&mut pins.port);
         // let floating_pin = pins.a0.into_floating_input(&mut pins.port);
 
         // TODO: use a dummy Mutex so that rtic is happy
         // https://github.com/Rahix/shared-bus/issues/4#issuecomment-653635843
-        let spi_bus = {
+        let shared_spi_manager = {
             // SPI is shared between radio, sensors, and the SD card
             // TODO: what speed? m4 maxes at 24mhz. is m0 the same? what
             let my_spi = hal::spi_master(
@@ -162,24 +161,27 @@ const APP: () = {
                 &mut pins.port,
             );
 
-            let spi_bus = shared_bus::BusManager::<mutex::DummyMutex<_>, _>::new(my_spi);
-
-            unsafe {
-                SPI_BUS = Some(spi_bus);
-                // This reference is now &'static
-                SPI_BUS.as_ref().unwrap()
-            }
+            shared_bus_rtic::new!(my_spi, SPIMaster)
         };
 
         // setup sd card
+        // let sd_spi = shared_spi_manager.acquire();
+
+        // TODO: why isn't this working? why does the spi not implement fullduplex?
+        // let sd_spi = embedded_sdmmc::SdMmcSpi::new(&sd_spi, sdcard_cs);
+
+        // let time_source = storage::DummyTimeSource;
+
         // let mut cont = embedded_sdmmc::Controller::new(
-        //     embedded_sdmmc::SdMmcSpi::new(spi_bus.acquire(), sdmmc_cs),
+        //     sd_spi,
         //     time_source
         // );
 
         // setup the radio
+        let radio_spi = shared_spi_manager.acquire();
+
         let my_radio = network::Radio::new(
-            spi_bus.acquire(),
+            radio_spi,
             rfm95_cs,
             rfm95_busy_fake,
             rfm95_int,
@@ -223,7 +225,7 @@ const APP: () = {
         init::LateResources {
             every_300_seconds,
             lights: my_lights,
-            radio: my_radio,
+            shared_spi_resources: SharedSPIResources { radio: my_radio },
             gps: my_gps,
             red_led,
             timer3,
@@ -237,14 +239,14 @@ const APP: () = {
         every_300_seconds,
         gps,
         lights,
-        radio,
+        shared_spi_resources,
         red_led,
     ])]
     fn idle(c: idle::Context) -> ! {
         let every_300_seconds = c.resources.every_300_seconds;
         let my_gps = c.resources.gps;
         let my_lights = c.resources.lights;
-        let my_radio = c.resources.radio;
+        let shared_spi_resources = c.resources.shared_spi_resources;
         let red_led = c.resources.red_led;
 
         red_led.set_high().unwrap();

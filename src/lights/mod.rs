@@ -52,42 +52,59 @@ impl<Pin: _atsamd_hal_embedded_hal_digital_v2_OutputPin> Lights<Pin> {
         todo!("draw 1 red, 2 green, 3 blue and delay for 1 second");
     }
 
+    pub fn update_flashlight(&mut self, orientation_changed: bool) {
+        todo!();
+    }
+
+    pub fn update_compass(&mut self, orientation_changed: bool) {
+        todo!();
+    }
+
+    pub fn update_clock(&mut self, orientation_changed: bool) {
+        todo!();
+    }
+
+    pub fn update_pretty_lights(&mut self, orientation_changed: bool) {
+        todo!();
+    }
+
     /// TODO: return the result instead of unwrapping?
     pub fn draw(&mut self) {
         static mut LAST_ORIENTATION: Orientation = Orientation::Unknown;
 
+        if !self.framerate.ready() {
+            return;
+        }
+
         let my_brightness = self.brightness;
 
-        // TODO: if framerate period is ready, draw the next frame for this orientation
-        if self.framerate.ready() {
-            let orientation_changed = unsafe { LAST_ORIENTATION == self.orientation };
+        let orientation_changed = unsafe { LAST_ORIENTATION == self.orientation };
 
-            match self.orientation {
-                Orientation::FaceDown => {
-                    // render flashlight
-                    // self.update_flashlight(orientation_changed);
-                }
-                Orientation::FaceUp => {
-                    // render compass
-                    // self.update_compass(orientation_changed);
-                }
-                Orientation::PortraitDown => {
-                    // render clock
-                    // self.update_clock(orientation_changed);
-                }
-                Orientation::LandscapeUp
-                | Orientation::LandscapeDown
-                | Orientation::PortraitUp
-                | Orientation::Unknown => {
-                    // render pretty lights
-                    // self.update_pretty_lights(orientation_changed);
-                }
-            };
+        match self.orientation {
+            Orientation::FaceDown => {
+                // render flashlight
+                self.update_flashlight(orientation_changed);
+            }
+            Orientation::FaceUp => {
+                // render compass
+                self.update_compass(orientation_changed);
+            }
+            Orientation::PortraitDown => {
+                // render clock
+                self.update_clock(orientation_changed);
+            }
+            Orientation::LandscapeUp
+            | Orientation::LandscapeDown
+            | Orientation::PortraitUp
+            | Orientation::Unknown => {
+                // render pretty lights
+                self.update_pretty_lights(orientation_changed);
+            }
+        };
 
-            if orientation_changed {
-                unsafe {
-                    LAST_ORIENTATION = self.orientation;
-                }
+        if orientation_changed {
+            unsafe {
+                LAST_ORIENTATION = self.orientation;
             }
         }
 
@@ -103,7 +120,7 @@ impl<Pin: _atsamd_hal_embedded_hal_digital_v2_OutputPin> Lights<Pin> {
         // display (without interrupts)
         interrupt::free(|_cs| {
             self.lights.write(data).unwrap();
-        })
+        });
     }
 }
 
