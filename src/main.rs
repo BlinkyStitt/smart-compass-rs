@@ -35,8 +35,8 @@ pub type GPSSerial = hal::sercom::UART0<
     (),
 >;
 
-type SpiRadio<Spi> = network::Radio<
-    Spi,
+type SpiRadio<SpiWrapper> = network::Radio<
+    SpiWrapper,
     hal::sercom::Error,
     hal::gpio::Pa6<hal::gpio::Output<hal::gpio::PushPull>>,
     hal::gpio::Pa20<hal::gpio::Input<hal::gpio::PullDown>>,
@@ -145,33 +145,27 @@ const APP: () = {
         let red_led = pins.d13.into_open_drain_output(&mut pins.port);
         // let floating_pin = pins.a0.into_floating_input(&mut pins.port);
 
-        // TODO: use a dummy Mutex so that rtic is happy
-        // https://github.com/Rahix/shared-bus/issues/4#issuecomment-653635843
-        let shared_spi_manager = {
-            // SPI is shared between radio, sensors, and the SD card
-            // TODO: what speed? m4 maxes at 24mhz. is m0 the same? what
-            let my_spi = hal::spi_master(
-                &mut clocks,
-                24.mhz(),
-                device.SERCOM4,
-                &mut device.PM,
-                pins.sck,
-                pins.mosi,
-                pins.miso,
-                &mut pins.port,
-            );
-
-            shared_bus_rtic::new!(my_spi, SPIMaster)
-        };
+        // TODO: what speed? m4 maxes at 24mhz. is m0 the same? what
+        let my_spi = hal::spi_master(
+            &mut clocks,
+            24.mhz(),
+            device.SERCOM4,
+            &mut device.PM,
+            pins.sck,
+            pins.mosi,
+            pins.miso,
+            &mut pins.port,
+        );
+        // SPI is shared between radio, sensors, and the SD card
+        let shared_spi_manager = shared_bus_rtic::new!(my_spi, SPIMaster);
 
         // setup sd card
-        // let sd_spi = shared_spi_manager.acquire();
+        let sd_spi = shared_spi_manager.acquire();
 
         // TODO: why isn't this working? why does the spi not implement fullduplex?
-        // let sd_spi = embedded_sdmmc::SdMmcSpi::new(&sd_spi, sdcard_cs);
+        let sd_spi = embedded_sdmmc::SdMmcSpi::new(sd_spi, sdcard_cs);
 
         // let time_source = storage::DummyTimeSource;
-
         // let mut cont = embedded_sdmmc::Controller::new(
         //     sd_spi,
         //     time_source
@@ -221,11 +215,12 @@ const APP: () = {
         timer4.start(10.hz());
         timer4.enable_interrupt();
 
-        // TODO: should we use into_push_pull_output or into_open_drain_output?
+        let shared_spi_resources = SharedSPIResources { radio: my_radio };
+
         init::LateResources {
             every_300_seconds,
             lights: my_lights,
-            shared_spi_resources: SharedSPIResources { radio: my_radio },
+            shared_spi_resources,
             gps: my_gps,
             red_led,
             timer3,
