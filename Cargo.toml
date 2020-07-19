@@ -17,7 +17,6 @@ embedded-sdmmc = "0.3"
 feather_m0 = { path = "../atsamd/boards/feather_m0", features = ["unproven"] }
 # TODO: this needs updates to match the latest dependencies on feather_m0
 radio-sx127x = { path = "../rust-radio-sx127x", default-features = false }
-shared-bus-rtic = "*"
 smart-leds = "0.3"
 # make sure ws2812 crate uses the same smart-leds-trait crate as smart-leds
 ws2812-nop-samd21 = "0.3"
@@ -36,3 +35,7 @@ panic-halt = "*"
 # TODO: use these from radio-sx127x
 embedded-hal = { version = "0.2.4", features = ["unproven"] }
 embedded-spi = { version = "0.6.2", default-features = false }
+
+[dependencies.shared-bus-rtic]
+git = "https://github.com/ryan-summers/shared-bus-rtic"
+branch = "feature/spi-full-duplex"

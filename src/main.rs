@@ -47,6 +47,13 @@ type SpiRadio<SpiWrapper> = network::Radio<
 >;
 pub struct SharedSPIResources {
     radio: SpiRadio<SharedBus<SPIMaster>>,
+    sd_controller: embedded_sdmmc::Controller<
+        embedded_sdmmc::SdMmcSpi<
+            SharedBus<SPIMaster>,
+            hal::gpio::Pa18<hal::gpio::Output<hal::gpio::PushPull>>,
+        >,
+        storage::DummyTimeSource,
+    >,
 }
 
 // static globals
@@ -165,11 +172,13 @@ const APP: () = {
         // TODO: why isn't this working? why does the spi not implement fullduplex?
         let sd_spi = embedded_sdmmc::SdMmcSpi::new(sd_spi, sdcard_cs);
 
-        // let time_source = storage::DummyTimeSource;
-        // let mut cont = embedded_sdmmc::Controller::new(
-        //     sd_spi,
-        //     time_source
-        // );
+        // TODO: a real time source from tthe rtc?
+        let time_source = storage::DummyTimeSource;
+
+        let sd_controller = embedded_sdmmc::Controller::new(
+            sd_spi,
+            time_source
+        );
 
         // setup the radio
         let radio_spi = shared_spi_manager.acquire();
@@ -215,7 +224,10 @@ const APP: () = {
         timer4.start(10.hz());
         timer4.enable_interrupt();
 
-        let shared_spi_resources = SharedSPIResources { radio: my_radio };
+        let shared_spi_resources = SharedSPIResources {
+            radio: my_radio,
+            sd_controller,
+        };
 
         init::LateResources {
             every_300_seconds,
