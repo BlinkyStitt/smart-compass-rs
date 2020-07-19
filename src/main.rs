@@ -37,9 +37,9 @@ pub type Uart = hal::sercom::UART0<
 >;
 
 type SpiMutexInner = core::cell::RefCell<Spi>;
-type SpiMutex = hal::cortex_m::interrupt::Mutex<SpiMutexInner>;
-type SpiBus = shared_bus::CortexMBusManager<SpiMutexInner, Spi>;
-type SpiProxy = shared_bus::proxy::BusProxy<'static, SpiMutex, Spi>;
+type SpiMutex = mutex::DummyMutex<SpiMutexInner>;
+pub type SpiBus = shared_bus::BusManager<SpiMutex, Spi>;
+pub type SpiProxy = shared_bus::proxy::BusProxy<'static, SpiMutex, Spi>;
 
 type SpiRadio = network::Radio<
     SpiProxy,
@@ -163,7 +163,7 @@ const APP: () = {
                 &mut pins.port,
             );
 
-            let spi_bus = shared_bus::CortexMBusManager::new(my_spi);
+            let spi_bus = shared_bus::BusManager::<mutex::DummyMutex<_>, _>::new(my_spi);
 
             unsafe {
                 SPI_BUS = Some(spi_bus);
@@ -172,7 +172,11 @@ const APP: () = {
             }
         };
 
-        // TODO: setup sd card
+        // setup sd card
+        // let mut cont = embedded_sdmmc::Controller::new(
+        //     embedded_sdmmc::SdMmcSpi::new(spi_bus.acquire(), sdmmc_cs), 
+        //     time_source
+        // );
 
         // setup the radio
         let my_radio = network::Radio::new(spi_bus.acquire(), rfm95_cs, rfm95_busy_fake, rfm95_int, rfm95_rst, delay);
