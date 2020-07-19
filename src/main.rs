@@ -22,24 +22,23 @@ use asm_delay::AsmDelay;
 use hal::clock::GenericClockController;
 use rtic::app;
 
-// TODO: this is a big type
-pub type Spi = hal::sercom::SPIMaster4<
+pub type SPIMaster4 = hal::sercom::SPIMaster4<
     hal::sercom::Sercom4Pad0<hal::gpio::Pa12<hal::gpio::PfD>>,
     hal::sercom::Sercom4Pad2<hal::gpio::Pb10<hal::gpio::PfD>>,
     hal::sercom::Sercom4Pad3<hal::gpio::Pb11<hal::gpio::PfD>>
 >;
 
-pub type Uart = hal::sercom::UART0<
+pub type UART0 = hal::sercom::UART0<
     hal::sercom::Sercom0Pad3<hal::gpio::Pa11<hal::gpio::PfC>>,
     hal::sercom::Sercom0Pad2<hal::gpio::Pa10<hal::gpio::PfC>>,
     (),
     ()
 >;
 
-type SpiMutexInner = core::cell::RefCell<Spi>;
+type SpiMutexInner = core::cell::RefCell<SPIMaster4>;
 type SpiMutex = mutex::DummyMutex<SpiMutexInner>;
-pub type SpiBus = shared_bus::BusManager<SpiMutex, Spi>;
-pub type SpiProxy = shared_bus::proxy::BusProxy<'static, SpiMutex, Spi>;
+pub type SpiBus = shared_bus::BusManager<SpiMutex, SPIMaster4>;
+pub type SpiProxy = shared_bus::proxy::BusProxy<'static, SpiMutex, SPIMaster4>;
 
 type SpiRadio = network::Radio<
     SpiProxy,
