@@ -17,9 +17,7 @@ impl Periodic {
     }
 
     pub fn ready(&mut self) -> bool {
-        let now = unsafe {
-            crate::ELAPSED_MS
-        };
+        let now = unsafe { crate::ELAPSED_MS };
 
         let is_ready = now - self.previous_trigger >= self.period_ms;
 

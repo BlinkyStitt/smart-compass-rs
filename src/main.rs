@@ -25,14 +25,14 @@ use rtic::app;
 pub type SPIMaster4 = hal::sercom::SPIMaster4<
     hal::sercom::Sercom4Pad0<hal::gpio::Pa12<hal::gpio::PfD>>,
     hal::sercom::Sercom4Pad2<hal::gpio::Pb10<hal::gpio::PfD>>,
-    hal::sercom::Sercom4Pad3<hal::gpio::Pb11<hal::gpio::PfD>>
+    hal::sercom::Sercom4Pad3<hal::gpio::Pb11<hal::gpio::PfD>>,
 >;
 
 pub type UART0 = hal::sercom::UART0<
     hal::sercom::Sercom0Pad3<hal::gpio::Pa11<hal::gpio::PfC>>,
     hal::sercom::Sercom0Pad2<hal::gpio::Pa10<hal::gpio::PfC>>,
     (),
-    ()
+    (),
 >;
 
 type SpiMutexInner = core::cell::RefCell<SPIMaster4>;
@@ -150,7 +150,7 @@ const APP: () = {
         // https://github.com/Rahix/shared-bus/issues/4#issuecomment-653635843
         let spi_bus = {
             // SPI is shared between radio, sensors, and the SD card
-            // TODO: what speed? m4 maxes at 24mhz. is m0 the same? what 
+            // TODO: what speed? m4 maxes at 24mhz. is m0 the same? what
             let my_spi = hal::spi_master(
                 &mut clocks,
                 24.mhz(),
@@ -173,12 +173,19 @@ const APP: () = {
 
         // setup sd card
         // let mut cont = embedded_sdmmc::Controller::new(
-        //     embedded_sdmmc::SdMmcSpi::new(spi_bus.acquire(), sdmmc_cs), 
+        //     embedded_sdmmc::SdMmcSpi::new(spi_bus.acquire(), sdmmc_cs),
         //     time_source
         // );
 
         // setup the radio
-        let my_radio = network::Radio::new(spi_bus.acquire(), rfm95_cs, rfm95_busy_fake, rfm95_int, rfm95_rst, delay);
+        let my_radio = network::Radio::new(
+            spi_bus.acquire(),
+            rfm95_cs,
+            rfm95_busy_fake,
+            rfm95_int,
+            rfm95_rst,
+            delay,
+        );
 
         // TODO: setup compass/orientation sensor
 
@@ -247,49 +254,41 @@ const APP: () = {
                 // TODO: set the brightness based on the battery level
                 // TODO: is rounding here okay?
                 let new_brightness = match battery::BatteryStatus::check() {
-                    battery::BatteryStatus::Dead => {
-                        DEFAULT_BRIGHTNESS / 2
-                    },
-                    battery::BatteryStatus::Low => {
-                        DEFAULT_BRIGHTNESS / 4 * 3
-                    },
-                    battery::BatteryStatus::Okay => {
-                        DEFAULT_BRIGHTNESS / 10 * 9
-                    },
-                    battery::BatteryStatus::Full => {
-                        DEFAULT_BRIGHTNESS
-                    },
+                    battery::BatteryStatus::Dead => DEFAULT_BRIGHTNESS / 2,
+                    battery::BatteryStatus::Low => DEFAULT_BRIGHTNESS / 4 * 3,
+                    battery::BatteryStatus::Okay => DEFAULT_BRIGHTNESS / 10 * 9,
+                    battery::BatteryStatus::Full => DEFAULT_BRIGHTNESS,
                 };
-    
+
                 my_lights.set_brightness(new_brightness);
             }
-    
+
             // TODO: get the actual orientation from a sensor
             // TODO: should this be a global?
             let orientation = accelerometer::Orientation::Unknown;
-    
+
             my_lights.set_orientation(orientation);
-    
+
             // TODO: get location from the GPS
-    
+
             my_lights.draw();
-    
-            // TODO: if we have a GPS fix, 
+
+            // TODO: if we have a GPS fix,
             if false {
                 // TODO: get the time from the GPS
-    
+
                 // TODO: get the time_segment_id
-    
+
                 // TODO: get the broadcasting_peer_id and broadcasted_peer_id
-    
+
                 // TODO: radio transmit or receive depending on the time_segment_id
             } else {
                 // TODO: radio receive
             }
-    
+
             // draw again because the using radio can take a while
             my_lights.draw();
-    
+
             // TODO: fastLED.delay equivalent to improve brightness? make sure it doesn't block the radios!
         }
     }

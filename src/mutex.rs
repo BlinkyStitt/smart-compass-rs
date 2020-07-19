@@ -5,7 +5,9 @@ use shared_bus::mutex::BusMutex;
 
 /// This mutex does NOT actually lock anything!
 /// Only use this when rtic is already handling safe concurrency
-pub struct DummyMutex<T> { inner: T }
+pub struct DummyMutex<T> {
+    inner: T,
+}
 
 impl<T> BusMutex<T> for DummyMutex<T> {
     fn create(inner: T) -> Self {

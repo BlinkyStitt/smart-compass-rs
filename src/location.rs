@@ -4,7 +4,7 @@
 use crate::UART0;
 
 pub struct Gps {
-    uart: UART0
+    uart: UART0,
 }
 
 impl Gps {

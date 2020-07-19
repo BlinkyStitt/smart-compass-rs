@@ -6,7 +6,7 @@ use feather_m0::prelude::_atsamd_hal_embedded_hal_digital_v2_OutputPin;
 use crate::hal::cortex_m::interrupt;
 use crate::periodic::Periodic;
 use accelerometer::Orientation;
-use smart_leds::{brightness, gamma, RGB8, SmartLedsWrite};
+use smart_leds::{brightness, gamma, SmartLedsWrite, RGB8};
 use ws2812_nop_samd21::Ws2812;
 
 /// TODO: better trait bounds?
@@ -57,30 +57,31 @@ impl<Pin: _atsamd_hal_embedded_hal_digital_v2_OutputPin> Lights<Pin> {
         static mut LAST_ORIENTATION: Orientation = Orientation::Unknown;
 
         let my_brightness = self.brightness;
-        
+
         // TODO: if framerate period is ready, draw the next frame for this orientation
         if self.framerate.ready() {
-            let orientation_changed = unsafe {
-                LAST_ORIENTATION == self.orientation
-            };
+            let orientation_changed = unsafe { LAST_ORIENTATION == self.orientation };
 
             match self.orientation {
                 Orientation::FaceDown => {
                     // render flashlight
                     // self.update_flashlight(orientation_changed);
-                },
+                }
                 Orientation::FaceUp => {
                     // render compass
                     // self.update_compass(orientation_changed);
-                },
+                }
                 Orientation::PortraitDown => {
                     // render clock
                     // self.update_clock(orientation_changed);
-                },
-                Orientation::LandscapeUp | Orientation::LandscapeDown | Orientation::PortraitUp | Orientation::Unknown => {
+                }
+                Orientation::LandscapeUp
+                | Orientation::LandscapeDown
+                | Orientation::PortraitUp
+                | Orientation::Unknown => {
                     // render pretty lights
                     // self.update_pretty_lights(orientation_changed);
-                },
+                }
             };
 
             if orientation_changed {
