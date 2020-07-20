@@ -35,12 +35,13 @@ pub type GPSSerial = hal::sercom::UART0<
     (),
 >;
 
+// TODO: less strict types here
 type SpiRadio<SpiWrapper> = network::Radio<
     SpiWrapper,
     hal::sercom::Error,
     hal::gpio::Pa6<hal::gpio::Output<hal::gpio::PushPull>>,
-    hal::gpio::Pa20<hal::gpio::Input<hal::gpio::PullDown>>,
-    hal::gpio::Pa9<hal::gpio::Input<hal::gpio::PullDown>>,
+    hal::gpio::Pb8<hal::gpio::Input<hal::gpio::PullDown>>,
+    hal::gpio::Pb9<hal::gpio::Input<hal::gpio::PullDown>>,
     hal::gpio::Pa8<hal::gpio::Output<hal::gpio::PushPull>>,
     (),
     asm_delay::AsmDelay,
@@ -115,6 +116,7 @@ const APP: () = {
         let mut pins = hal::Pins::new(device.PORT);
 
         // TODO: rtic doesn't expose SYST
+        // https://github.com/ryankurte/rust-radio-hal/issues/9#issuecomment-660731913
         // let delay = hal::delay::Delay::new(device.SYST, &mut clocks);
         let delay = AsmDelay::new(asm_delay::bitrate::U32BitrateExt::mhz(48));
 
@@ -135,12 +137,12 @@ const APP: () = {
         // setup all the pins
         // TODO: should we use into_push_pull_output or into_open_drain_output?
         // already wired for us
-        let rfm95_int = pins.d3.into_pull_down_input(&mut pins.port);
+        // TODO: use the interrupt
+        let rfm95_interrupt = pins.d3.into_pull_down_input(&mut pins.port);
         // already wired for us
-        let rfm95_rst = pins.d4.into_push_pull_output(&mut pins.port);
+        let rfm95_reset = pins.d4.into_push_pull_output(&mut pins.port);
         let led_data = pins.d5.into_push_pull_output(&mut pins.port);
         // TODO: this pin doesn't actually connect to the radio. is this input type right?
-        let rfm95_busy_fake = pins.d6.into_pull_down_input(&mut pins.port);
         // already wired for us
         let rfm95_cs = pins.d8.into_push_pull_output(&mut pins.port);
         // already wired for us
@@ -150,7 +152,11 @@ const APP: () = {
         // let lsm9ds1_csm = pins.d12.into_push_pull_output(&mut pins.port);
         // already wired for us
         let red_led = pins.d13.into_open_drain_output(&mut pins.port);
-        // let floating_pin = pins.a0.into_floating_input(&mut pins.port);
+        // wire this to io0
+        let rfm95_busy = pins.a1.into_pull_down_input(&mut pins.port);
+        // wire this to io1
+        let rfm95_ready = pins.a2.into_pull_down_input(&mut pins.port);
+        let floating_pin = pins.a3.into_floating_input(&mut pins.port);
 
         // TODO: what speed? m4 maxes at 24mhz. is m0 the same? what
         let my_spi = hal::spi_master(
@@ -186,15 +192,15 @@ const APP: () = {
         let my_radio = network::Radio::new(
             radio_spi,
             rfm95_cs,
-            rfm95_busy_fake,
-            rfm95_int,
-            rfm95_rst,
+            rfm95_busy,
+            rfm95_ready,
+            rfm95_reset,
             delay,
         );
 
         // TODO: setup compass/orientation sensor
 
-        // setup serial for communicating with the gps module
+        // setup serial for communicating with the gps module. 
         // TOOD: SERCOM0 or SERCOM1?
         // TODO: what speed?
         let my_uart = hal::uart(
