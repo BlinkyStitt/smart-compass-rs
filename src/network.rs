@@ -1,5 +1,5 @@
-use stm32f3_discovery::prelude::*;
 use radio_sx127x::prelude::*;
+use stm32f3_discovery::prelude::*;
 
 // TOODO: get this from radio_sx127x
 use embedded_spi::wrapper::Wrapper as SpiWrapper;

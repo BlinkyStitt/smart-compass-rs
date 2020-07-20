@@ -40,7 +40,10 @@ pub type SpiMaster = hal::spi::Spi<
 /// TODO: generic type?
 type GPSSerial = hal::serial::Serial<
     hal::stm32::USART2,
-    (hal::gpio::gpiod::PD5<hal::gpio::AF7>, hal::gpio::gpiod::PD6<hal::gpio::AF7>),
+    (
+        hal::gpio::gpiod::PD5<hal::gpio::AF7>,
+        hal::gpio::gpiod::PD6<hal::gpio::AF7>,
+    ),
 >;
 
 /// TODO: what should we name this
@@ -52,13 +55,13 @@ type MyLights = lights::Lights<hal::gpio::gpioc::PC5<hal::gpio::Output<hal::gpio
 type SdController<SpiWrapper> = embedded_sdmmc::Controller<
     embedded_sdmmc::SdMmcSpi<
         SpiWrapper,
-        hal::gpio::gpioc::PC0<hal::gpio::Output<hal::gpio::PushPull>>
+        hal::gpio::gpioc::PC0<hal::gpio::Output<hal::gpio::PushPull>>,
     >,
     storage::DummyTimeSource,
 >;
 
 type SpiRadio<SpiWrapper> = network::Radio<
-    SpiWrapper, 
+    SpiWrapper,
     hal::spi::Error,
     hal::gpio::gpioc::PC1<hal::gpio::Output<hal::gpio::PushPull>>,
     hal::gpio::gpioc::PC2<hal::gpio::Input<hal::gpio::PullDown>>,
@@ -222,23 +225,33 @@ const APP: () = {
         let sd_spi = shared_spi_manager.acquire();
 
         // TODO: what pin? i picked this randomly
-        let sdcard_cs = gpioc.pc0.into_push_pull_output(&mut gpioc.moder, &mut gpioc.otyper);
+        let sdcard_cs = gpioc
+            .pc0
+            .into_push_pull_output(&mut gpioc.moder, &mut gpioc.otyper);
 
         let time_source = storage::DummyTimeSource;
 
         let my_sd_card: SdController<_> = embedded_sdmmc::Controller::new(
             embedded_sdmmc::SdMmcSpi::new(sd_spi, sdcard_cs),
-            time_source
+            time_source,
         );
 
         // setup the radio
         let radio_spi = shared_spi_manager.acquire();
 
         // TODO: what pins? i picked these randomly
-        let rfm95_cs = gpioc.pc1.into_push_pull_output(&mut gpioc.moder, &mut gpioc.otyper);
-        let rfm95_busy = gpioc.pc2.into_pull_down_input(&mut gpioc.moder, &mut gpioc.pupdr);
-        let rfm95_ready = gpioc.pc3.into_pull_down_input(&mut gpioc.moder, &mut gpioc.pupdr);
-        let rfm95_reset = gpioc.pc4.into_push_pull_output(&mut gpioc.moder, &mut gpioc.otyper);
+        let rfm95_cs = gpioc
+            .pc1
+            .into_push_pull_output(&mut gpioc.moder, &mut gpioc.otyper);
+        let rfm95_busy = gpioc
+            .pc2
+            .into_pull_down_input(&mut gpioc.moder, &mut gpioc.pupdr);
+        let rfm95_ready = gpioc
+            .pc3
+            .into_pull_down_input(&mut gpioc.moder, &mut gpioc.pupdr);
+        let rfm95_reset = gpioc
+            .pc4
+            .into_push_pull_output(&mut gpioc.moder, &mut gpioc.otyper);
 
         let my_radio: SpiRadio<_> = network::Radio::new(
             radio_spi,
@@ -268,9 +281,12 @@ const APP: () = {
         let my_gps = location::Gps::new(gps_uart);
 
         // create lights
-        let led_data_pin = gpioc.pc5.into_push_pull_output(&mut gpioc.moder, &mut gpioc.otyper);
+        let led_data_pin = gpioc
+            .pc5
+            .into_push_pull_output(&mut gpioc.moder, &mut gpioc.otyper);
 
-        let my_lights: MyLights = lights::Lights::new(led_data_pin, DEFAULT_BRIGHTNESS, FRAMES_PER_SECOND);
+        let my_lights: MyLights =
+            lights::Lights::new(led_data_pin, DEFAULT_BRIGHTNESS, FRAMES_PER_SECOND);
 
         // TODO: use rtic's periodic tasks instead of our own
         // TODO: should this use the rtc?

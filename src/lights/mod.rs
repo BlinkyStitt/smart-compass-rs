@@ -3,10 +3,10 @@ mod patterns;
 
 use stm32f3_discovery::prelude::*;
 
-use stm32f3_discovery::cortex_m::interrupt;
 use crate::periodic::Periodic;
-use stm32f3_discovery::accelerometer::Orientation;
 use smart_leds::{brightness, gamma, SmartLedsWrite, RGB8};
+use stm32f3_discovery::accelerometer::Orientation;
+use stm32f3_discovery::cortex_m::interrupt;
 use ws2812_nop_samd51::Ws2812;
 
 /// TODO: better trait bounds?
