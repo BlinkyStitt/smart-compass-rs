@@ -1,4 +1,4 @@
-use feather_m0::prelude::*;
+use stm32f3_discovery::prelude::*;
 use radio_sx127x::prelude::*;
 
 // TOODO: get this from radio_sx127x
@@ -19,10 +19,10 @@ impl<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay>
 where
     Spi: _embedded_hal_blocking_spi_Transfer<u8, Error = SpiError>
         + _embedded_hal_blocking_spi_Write<u8, Error = SpiError>,
-    CsPin: _atsamd_hal_embedded_hal_digital_v2_OutputPin<Error = PinError>,
-    BusyPin: _atsamd_hal_embedded_hal_digital_v2_InputPin<Error = PinError>,
-    // TODO: should ReadyPin have a where?
-    ResetPin: _atsamd_hal_embedded_hal_digital_v2_OutputPin<Error = PinError>,
+    CsPin: _embedded_hal_digital_OutputPin<Error = PinError>,
+    BusyPin: _embedded_hal_digital_InputPin<Error = PinError>,
+    ReadyPin: _embedded_hal_digital_InputPin<Error = PinError>,
+    ResetPin: _embedded_hal_digital_OutputPin<Error = PinError>,
     Delay: _embedded_hal_blocking_delay_DelayMs<u32>,
 {
     pub fn new(

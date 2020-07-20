@@ -15,20 +15,15 @@ cortex-m-semihosting = "0.3.3"
 embedded-sdmmc = "0.3"
 panic-semihosting = "0.5"
 radio-sx127x = { path = "../rust-radio-sx127x", default-features = false }
-# smart-leds = "0.3"
+smart-leds = "0.3"
 # make sure ws2812 crate uses the same smart-leds-trait crate as smart-leds
 # TODO: is this crate compatible? do we need one for a stm32f3?
-# ws2812-nop-samd51 = "https://github.com/smart-leds-rs/ws2812-nop-samd51"
+ws2812-nop-samd51 = { path = "../ws2812-nop-samd51" }
 
 # TODO: these require std
 # adafruit_gps = "0.3"
 # make sure adafruit-gps crate uses the same serialport crate as this
 # serialport = { version = "3.3.0", default-features = false }
-
-# TODO: use these from feather_m0
-# cortex-m = "*"
-# cortex-m-rt = "*"
-# cortex-m-semihosting = "0.3.5"
 
 # TODO: use these from radio-sx127x
 embedded-hal = { version = "0.2.4", features = ["unproven"] }

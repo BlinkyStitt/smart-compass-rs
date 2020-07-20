@@ -1,16 +1,16 @@
 mod networked;
 mod patterns;
 
-use feather_m0::prelude::_atsamd_hal_embedded_hal_digital_v2_OutputPin;
+use stm32f3_discovery::prelude::*;
 
-use crate::hal::cortex_m::interrupt;
+use stm32f3_discovery::cortex_m::interrupt;
 use crate::periodic::Periodic;
-use accelerometer::Orientation;
+use stm32f3_discovery::accelerometer::Orientation;
 use smart_leds::{brightness, gamma, SmartLedsWrite, RGB8};
-use ws2812_nop_samd21::Ws2812;
+use ws2812_nop_samd51::Ws2812;
 
 /// TODO: better trait bounds?
-pub struct Lights<Pin: _atsamd_hal_embedded_hal_digital_v2_OutputPin> {
+pub struct Lights<Pin: _embedded_hal_digital_OutputPin> {
     brightness: u8,
     framerate: Periodic,
     lights: Ws2812<Pin>,
@@ -19,7 +19,7 @@ pub struct Lights<Pin: _atsamd_hal_embedded_hal_digital_v2_OutputPin> {
     light_data: [RGB8; 256],
 }
 
-impl<Pin: _atsamd_hal_embedded_hal_digital_v2_OutputPin> Lights<Pin> {
+impl<Pin: _embedded_hal_digital_OutputPin> Lights<Pin> {
     pub fn new(pin: Pin, brightness: u8, frames_per_second: u8) -> Self {
         let lights = Ws2812::new(pin);
 
