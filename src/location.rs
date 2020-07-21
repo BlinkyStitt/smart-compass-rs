@@ -8,14 +8,13 @@
 // use adafruit_gps::send_pmtk::NmeaOutput;
 use stm32f3_discovery::prelude::*;
 
-use crate::GPSSerial;
 use crate::hal;
+use crate::GPSSerial;
+use yanp::parse::{GpsDate, GpsPosition, GpsQuality, GpsTime, LongitudeDirection, SentenceData};
 use yanp::parse_nmea_sentence;
-use yanp::parse::{GpsPosition, GpsQuality, GpsDate, GpsTime, SentenceData, LongitudeDirection};
 
 /// TODO: use generic types instead of hard coding to match our hardware
-pub struct UltimateGps
-{
+pub struct UltimateGps {
     tx: hal::serial::Tx<hal::stm32::USART2>,
     rx: hal::serial::Rx<hal::stm32::USART2>,
 
@@ -50,14 +49,14 @@ pub struct GpsData {
 
 impl GpsData {
     pub fn update(&mut self, data: SentenceData) -> bool {
-        // TODO: support other sentences?
+        // TODO: support other sentences? GSA for 2d vs 3d fix?
         match data {
             SentenceData::GGA(data) => {
                 self.time = data.time;
                 self.position = Some(data.position);
                 self.quality = data.quality;
                 self.sats_in_view = data.sats_in_view;
-            },
+            }
             SentenceData::RMC(data) => {
                 self.time = data.time;
                 self.position = Some(data.position);
@@ -66,17 +65,19 @@ impl GpsData {
                 self.date = data.date;
                 self.magnetic_variation = data.magnetic_variation;
                 self.magnetic_direction = data.magnetic_direction;
-            },
-            _ => return false
+            }
+            _ => return false,
         }
 
         true
     }
 }
 
-impl UltimateGps
-{
-    pub fn new(uart: GPSSerial, enable_pin: hal::gpio::gpioc::PC6<hal::gpio::Output<hal::gpio::PushPull>>) -> Self {
+impl UltimateGps {
+    pub fn new(
+        uart: GPSSerial,
+        enable_pin: hal::gpio::gpioc::PC6<hal::gpio::Output<hal::gpio::PushPull>>,
+    ) -> Self {
         let (tx, rx) = uart.split();
 
         // TODO: buffer could probably be better
@@ -85,7 +86,14 @@ impl UltimateGps
 
         let data = GpsData::default();
 
-        Self { tx, rx, enable_pin, buffer_len, buffer, data }
+        Self {
+            tx,
+            rx,
+            enable_pin,
+            buffer_len,
+            buffer,
+            data,
+        }
     }
 
     /// Check for updated data from the GPS module and process it accordingly.
@@ -96,6 +104,7 @@ impl UltimateGps
         }
 
         // TODO: should we disable interrupts? or maybe buffer_len needs to be atomic. or maybe a "busy" atomic to just stop read?
+        // TODO: this is wrong. we might have multiple sentences in the buffer! break the buffer into lines first
         if let Ok(sentence) = parse_nmea_sentence(&self.buffer[0..self.buffer_len]) {
             self.buffer_len = 0;
 

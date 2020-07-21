@@ -13,6 +13,7 @@ blake2 = { version = "0.9", default-features = false }
 cortex-m-rtic = "0.5"
 cortex-m-semihosting = "0.3.3"
 embedded-sdmmc = "0.3"
+heapless = "0.5"
 panic-semihosting = "0.5"
 radio-sx127x = { path = "../rust-radio-sx127x", default-features = false }
 smart-leds = "0.3"

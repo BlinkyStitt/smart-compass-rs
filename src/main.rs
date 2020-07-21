@@ -318,12 +318,10 @@ const APP: () = {
         init::LateResources {
             compass: my_compass,
             compass_lights: my_compass_lights,
-            // stim,
             every_300_seconds,
+            gps: my_gps,
             lights: my_lights,
             shared_spi_resources,
-            gps: my_gps,
-            // timer4,
             timer7,
         }
     }
@@ -334,14 +332,14 @@ const APP: () = {
         compass,
         compass_lights,
         every_300_seconds,
-        // gps,
-        // lights,
+        gps,
+        lights,
         shared_spi_resources,
-        // red_led,
     ])]
     fn idle(c: idle::Context) -> ! {
         let my_compass = c.resources.compass;
         let my_compass_lights = c.resources.compass_lights;
+        let my_gps = c.resources.gps;
 
         loop {
             let accel = my_compass.accel_raw().unwrap();
@@ -351,7 +349,19 @@ const APP: () = {
             // iprintln!(stim, "Accel:{:?}; Mag:{:?}", accel, mag);
             hprintln!("Accel:{:?}; Mag:{:?}", accel, mag).unwrap();
 
-            wait_for_interrupt();
+            // TODO: do we need to lock the gps? i think without a lock the interrupt could have issues
+            if my_gps.update() {
+                hprintln!("GPS updated");
+            }
+
+            if my_gps.has_fix() {
+                hprintln!("GPS has fix");
+            } else {
+                hprintln!("GPS does not have a fix");
+                // wait on the radio receiving
+                // TODO: although maybe that should be in an interrupt?
+                // TODO: spend 50% the time with the radio asleep
+            }
         }
 
         /*
