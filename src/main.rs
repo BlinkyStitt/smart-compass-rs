@@ -353,7 +353,6 @@ const APP: () = {
             hprintln!("Accel:{:?}; Mag:{:?}", accel, mag).unwrap();
 
             // TODO: do we need to lock the gps? i think without a lock the interrupt could have issues
-            /*
             if my_gps.update() {
                 hprintln!("GPS updated").unwrap();
             }
@@ -366,7 +365,6 @@ const APP: () = {
                 // TODO: although maybe that should be in an interrupt?
                 // TODO: spend 50% the time with the radio asleep
             }
-            */
         }
 
         /*
