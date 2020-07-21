@@ -8,15 +8,16 @@
 // use adafruit_gps::send_pmtk::NmeaOutput;
 use stm32f3_discovery::prelude::*;
 
-use crate::{hal, GPSSerial, GPS_QUEUE};
+use crate::{hal, GPSSerial};
+use heapless::consts::U1024;
+use heapless::spsc::{Consumer, Producer, Queue};
 use yanp::parse::{GpsDate, GpsPosition, GpsQuality, GpsTime, LongitudeDirection, SentenceData};
 use yanp::parse_nmea_sentence;
 
 /// TODO: use generic types instead of hard coding to match our hardware
 pub struct UltimateGps {
-    // TODO: i think we need to seperate the tx and rx into seperate structs (along with a queue that is currently static)
-    tx: hal::serial::Tx<hal::stm32::USART2>,
-    rx: hal::serial::Rx<hal::stm32::USART2>,
+    queue_rx: Consumer<'static, u8, U1024>,
+    serial_tx: hal::serial::Tx<hal::stm32::USART2>,
 
     /// EN is the Enable pin, it is pulled high with a 10K resistor.
     /// When this pin is pulled to ground, it will turn off the GPS module.
@@ -31,6 +32,29 @@ pub struct UltimateGps {
     sentence_buffer: [u8; 4096],
 
     data: GpsData,
+}
+
+pub struct UltimateGpsUpdater {
+    serial_rx: hal::serial::Rx<hal::stm32::USART2>,
+    queue_tx: Producer<'static, u8, U1024>,
+}
+
+impl UltimateGpsUpdater {
+    /// Read a byte into the queue
+    /// this gets called inside an interrupt, so make this fast!
+    pub fn read(&mut self) {
+        if self.queue_tx.ready() {
+            // the queue has room for another item
+            if let Ok(b) = self.serial_rx.read() {
+                // NOTE(unsafe) this is fine because...
+                // 1. we just checked that the producer is ready
+                // 2. this is the only place that calls enqueue
+                unsafe {
+                    self.queue_tx.enqueue_unchecked(b);
+                }
+            }
+        }
+    }
 }
 
 /// There's a lot more information available, but we don't need it right now
@@ -77,8 +101,14 @@ impl UltimateGps {
     pub fn new(
         uart: GPSSerial,
         enable_pin: hal::gpio::gpioc::PC6<hal::gpio::Output<hal::gpio::PushPull>>,
-    ) -> Self {
-        let (tx, rx) = uart.split();
+    ) -> (Self, UltimateGpsUpdater) {
+        let (serial_tx, serial_rx) = uart.split();
+
+        // `heapless::i` is an "unfortunate implementation detail required to construct heapless types in const context"
+        // TODO: do the static outside this?
+        static mut Q: Queue<u8, U1024> = Queue(heapless::i::Queue::new());
+
+        let (queue_tx, queue_rx) = unsafe { Q.split() };
 
         // TODO: buffer could probably be better
         let sentence_buffer_len = 0;
@@ -86,27 +116,31 @@ impl UltimateGps {
 
         let data = GpsData::default();
 
-        Self {
-            tx,
-            rx,
+        let gps = Self {
+            queue_rx,
+            serial_tx,
             enable_pin,
             sentence_buffer_len,
             sentence_buffer,
             data,
-        }
+        };
+
+        let updater = UltimateGpsUpdater {
+            serial_rx,
+            queue_tx,
+        };
+
+        (gps, updater)
     }
 
     /// Check for updated data from the GPS module and process it accordingly.
     /// Returns True if new data was processed, and False if nothing new was received.
     pub fn update(&mut self) -> bool {
-        // NOTE(unsafe) beware of aliasing the `consumer` end point
-        let mut consumer = unsafe { GPS_QUEUE.split().1 };
-
         // pull items off the queue and into our sentence buffer
         // stop looping when the queue is empty or when '\n' is found
         loop {
             // `dequeue` is a lockless operation
-            match consumer.dequeue() {
+            match self.queue_rx.dequeue() {
                 Some(b) => {
                     self.sentence_buffer[self.sentence_buffer_len] = b;
                     self.sentence_buffer_len += 1;
@@ -157,28 +191,8 @@ impl UltimateGps {
         &self.data
     }
 
-    /// Read a byte into the buffer
-    /// this gets called inside an interrupt, so make this fast!
-    pub fn read(&mut self) {
-        // TODO: don't use globals
-        // NOTE(unsafe) beware of aliasing the `producer` end point
-        let mut producer = unsafe { GPS_QUEUE.split().0 };
-
-        if producer.ready() {
-            // the queue has room for another item
-            if let Ok(b) = self.rx.read() {
-                // NOTE(unsafe) this is fine because...
-                // 1. we just checked that the producer is ready
-                // 2. this is the only place that calls enqueue
-                unsafe {
-                    producer.enqueue_unchecked(b);
-                }
-            }
-        }
-    }
-
     pub fn write(&mut self, word: u8) {
-        self.tx.write(word).ok().unwrap();
+        self.serial_tx.write(word).ok().unwrap();
     }
 }
 

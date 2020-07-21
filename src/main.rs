@@ -83,14 +83,9 @@ pub struct SharedSPIResources {
 static DEFAULT_BRIGHTNESS: u8 = 128;
 static FRAMES_PER_SECOND: u8 = 30;
 
-use heapless::consts::*;
-use heapless::spsc::Queue;
-
-/// TODO: use rtic resources instead
+// TODO: use rtic resources instead
 static mut ELAPSED_MS: usize = 0;
-/// TODO: what size queue?
-/// `heapless::i` is an "unfortunate implementation detail required to construct heapless types in const context"
-static mut GPS_QUEUE: Queue<u8, U1024> = Queue(heapless::i::Queue::new());
+// TODO: what size queue?
 
 #[app(device = stm32f3_discovery::hal::stm32, peripherals = true)]
 const APP: () = {
@@ -102,6 +97,7 @@ const APP: () = {
         compass_lights: CompassLeds,
         lights: MyLights,
         gps: location::UltimateGps,
+        gps_updater: location::UltimateGpsUpdater,
         shared_spi_resources: SharedSPIResources,
         // timer4: hal::timer::Timer<hal::stm32::TIM4>,
         timer7: hal::timer::Timer<hal::stm32::TIM7>,
@@ -116,7 +112,7 @@ const APP: () = {
     //     }
     // }
 
-    #[task(binds = TIM7, resources = [timer7, gps])]
+    #[task(binds = TIM7, resources = [timer7, gps_updater])]
     fn tim7(c: tim7::Context) {
         if c.resources.timer7.wait().is_ok() {
             // TODO: use an atomic for this? or use rtic resources?
@@ -127,8 +123,7 @@ const APP: () = {
 
             // https://learn.adafruit.com/adafruit-ultimate-gps/parsed-data-output
             // "if you can, get this to run once a millisecond in an interrupt"
-            // todo: do we need to lock this?
-            c.resources.gps.read();
+            c.resources.gps_updater.read();
         }
     }
 
@@ -295,7 +290,7 @@ const APP: () = {
             .pc6
             .into_push_pull_output(&mut gpioc.moder, &mut gpioc.otyper);
 
-        let my_gps = location::UltimateGps::new(gps_uart, gps_enable_pin);
+        let (my_gps, my_gps_updater) = location::UltimateGps::new(gps_uart, gps_enable_pin);
 
         // create lights
         // TODO: what pin shuold we use? this one was random
@@ -327,6 +322,7 @@ const APP: () = {
             compass_lights: my_compass_lights,
             every_300_seconds,
             gps: my_gps,
+            gps_updater: my_gps_updater,
             lights: my_lights,
             shared_spi_resources,
             timer7,
@@ -346,7 +342,7 @@ const APP: () = {
     fn idle(c: idle::Context) -> ! {
         let my_compass = c.resources.compass;
         let my_compass_lights = c.resources.compass_lights;
-        let mut my_gps = c.resources.gps;
+        let my_gps = c.resources.gps;
 
         loop {
             let accel = my_compass.accel_raw().unwrap();
@@ -357,20 +353,20 @@ const APP: () = {
             hprintln!("Accel:{:?}; Mag:{:?}", accel, mag).unwrap();
 
             // TODO: do we need to lock the gps? i think without a lock the interrupt could have issues
-            my_gps.lock(|my_gps| {
-                if my_gps.update() {
-                    hprintln!("GPS updated").unwrap();
-                }
+            /*
+            if my_gps.update() {
+                hprintln!("GPS updated").unwrap();
+            }
 
-                if my_gps.has_fix() {
-                    hprintln!("GPS has fix").unwrap();
-                } else {
-                    hprintln!("GPS does not have a fix").unwrap();
-                    // wait on the radio receiving
-                    // TODO: although maybe that should be in an interrupt?
-                    // TODO: spend 50% the time with the radio asleep
-                }
-            });
+            if my_gps.has_fix() {
+                hprintln!("GPS has fix").unwrap();
+            } else {
+                hprintln!("GPS does not have a fix").unwrap();
+                // wait on the radio receiving
+                // TODO: although maybe that should be in an interrupt?
+                // TODO: spend 50% the time with the radio asleep
+            }
+            */
         }
 
         /*
