@@ -4,7 +4,7 @@
 // panic handler
 use panic_semihosting as _;
 
-// mod battery;
+mod battery;
 // mod compass;
 // mod config;
 mod lights;
@@ -90,8 +90,7 @@ static mut ELAPSED_MS: usize = 0;
 #[app(device = stm32f3_discovery::hal::stm32, peripherals = true)]
 const APP: () = {
     struct Resources {
-        // TODO: put every_300_seconds into a Battery struct
-        every_300_seconds: periodic::Periodic,
+        battery: battery::Battery,
         // TODO: put compass in a shared_resources helper if theres more than one i2c
         compass: Compass,
         compass_lights: CompassLeds,
@@ -220,7 +219,7 @@ const APP: () = {
             device.SPI1,
             (sck, miso, mosi),
             spi_mode,
-            3.mhz(),
+            24.mhz(),
             clocks,
             &mut reset_and_clock_control.apb2,
         );
@@ -247,6 +246,7 @@ const APP: () = {
         let radio_spi = shared_spi_manager.acquire();
 
         // TODO: what pins? i picked these randomly
+        // TODO: configure the pins in Radio's new function?
         let rfm95_cs = gpioc
             .pc1
             .into_push_pull_output(&mut gpioc.moder, &mut gpioc.otyper);
@@ -293,6 +293,7 @@ const APP: () = {
         let (my_gps, my_gps_updater) = location::UltimateGps::new(gps_uart, gps_enable_pin);
 
         // create lights
+        // TODO: use another SPI (at 3mhz) to control the leds?
         // TODO: what pin shuold we use? this one was random
         let led_data_pin = gpioc
             .pc5
@@ -301,9 +302,8 @@ const APP: () = {
         let my_lights: MyLights =
             lights::Lights::new(led_data_pin, DEFAULT_BRIGHTNESS, FRAMES_PER_SECOND);
 
-        // TODO: use rtic's periodic tasks instead of our own
-        // TODO: should this use the rtc?
-        let every_300_seconds = periodic::Periodic::new(300 * 1000);
+        let battery =
+            battery::Battery::new(gpioc.pc8, &mut gpioc.moder, &mut gpioc.pupdr, 300 * 1000);
 
         let shared_spi_resources = SharedSPIResources {
             radio: my_radio,
@@ -311,9 +311,9 @@ const APP: () = {
         };
 
         init::LateResources {
+            battery,
             compass: my_compass,
             compass_lights: my_compass_lights,
-            every_300_seconds,
             gps: my_gps,
             gps_updater: my_gps_updater,
             lights: my_lights,
@@ -325,15 +325,15 @@ const APP: () = {
     // `shared` cannot be accessed from this context
     // TODO: more of this should probably be done with interrupts
     #[idle(resources = [
+        battery,
         compass,
         compass_lights,
-        every_300_seconds,
         gps,
         lights,
         shared_spi_resources,
     ])]
     fn idle(c: idle::Context) -> ! {
-        let every_300_seconds = c.resources.every_300_seconds;
+        let my_battery = c.resources.battery;
         let my_compass = c.resources.compass;
         let my_compass_lights = c.resources.compass_lights;
         let my_gps = c.resources.gps;
@@ -341,6 +341,16 @@ const APP: () = {
         let shared_spi_resources = c.resources.shared_spi_resources;
 
         loop {
+            match my_battery.check() {
+                (false, _) => { /* no change */ }
+                (true, battery::BatteryStatus::Low) => {
+                    my_lights.set_brightness(DEFAULT_BRIGHTNESS / 2);
+                }
+                (true, battery::BatteryStatus::Ok) => {
+                    my_lights.set_brightness(DEFAULT_BRIGHTNESS);
+                }
+            }
+
             let accel = my_compass.accel_raw().unwrap();
             let mag = my_compass.mag_raw().unwrap();
 
