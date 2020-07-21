@@ -15,15 +15,15 @@ mod storage;
 
 use stm32f3_discovery::prelude::*;
 
+use asm_delay::AsmDelay;
+use cortex_m_semihosting::hprintln;
+use heapless::mpmc::Q32;
+use rtic::app;
+use shared_bus_rtic::SharedBus;
 use stm32f3_discovery::accelerometer::RawAccelerometer;
 use stm32f3_discovery::compass::Compass;
 use stm32f3_discovery::hal;
 use stm32f3_discovery::leds::Leds as CompassLeds;
-
-use asm_delay::AsmDelay;
-use cortex_m_semihosting::hprintln;
-use rtic::app;
-use shared_bus_rtic::SharedBus;
 
 /// TODO: what should we name this
 pub type SpiMaster = hal::spi::Spi<
@@ -78,13 +78,19 @@ pub struct SharedSPIResources {
 
 // static globals
 // static MAX_PEERS: u8 = 5;
-// the number of ms to offset our network timer. this is time to send+receive+process+draw
+// /// the number of ms to offset our network timer. this is time to send+receive+process+draw
 // static NETWORK_OFFSET: u16 = 125 + 225;
 static DEFAULT_BRIGHTNESS: u8 = 128;
 static FRAMES_PER_SECOND: u8 = 30;
 
-// TODO: use rtic resources instead. or at least an atomic
+use heapless::consts::*;
+use heapless::spsc::Queue;
+
+/// TODO: use rtic resources instead
 static mut ELAPSED_MS: usize = 0;
+/// TODO: what size queue?
+/// `heapless::i` is an "unfortunate implementation detail required to construct heapless types in const context"
+static mut GPS_QUEUE: Queue<u8, U1024> = Queue(heapless::i::Queue::new());
 
 #[app(device = stm32f3_discovery::hal::stm32, peripherals = true)]
 const APP: () = {
@@ -110,17 +116,18 @@ const APP: () = {
     //     }
     // }
 
-    /// TODO: is this how arduino's millis function works?
     #[task(binds = TIM7, resources = [timer7, gps])]
     fn tim7(c: tim7::Context) {
         if c.resources.timer7.wait().is_ok() {
-            // TODO: use an atomic for this? or use rtic resources
+            // TODO: use an atomic for this? or use rtic resources?
+            // TODO: is this how arduinio's millis function works?
             unsafe {
                 ELAPSED_MS += 1;
             }
 
             // https://learn.adafruit.com/adafruit-ultimate-gps/parsed-data-output
             // "if you can, get this to run once a millisecond in an interrupt"
+            // todo: do we need to lock this?
             c.resources.gps.read();
         }
     }
@@ -339,7 +346,7 @@ const APP: () = {
     fn idle(c: idle::Context) -> ! {
         let my_compass = c.resources.compass;
         let my_compass_lights = c.resources.compass_lights;
-        let my_gps = c.resources.gps;
+        let mut my_gps = c.resources.gps;
 
         loop {
             let accel = my_compass.accel_raw().unwrap();
@@ -350,18 +357,20 @@ const APP: () = {
             hprintln!("Accel:{:?}; Mag:{:?}", accel, mag).unwrap();
 
             // TODO: do we need to lock the gps? i think without a lock the interrupt could have issues
-            if my_gps.update() {
-                hprintln!("GPS updated");
-            }
+            my_gps.lock(|my_gps| {
+                if my_gps.update() {
+                    hprintln!("GPS updated").unwrap();
+                }
 
-            if my_gps.has_fix() {
-                hprintln!("GPS has fix");
-            } else {
-                hprintln!("GPS does not have a fix");
-                // wait on the radio receiving
-                // TODO: although maybe that should be in an interrupt?
-                // TODO: spend 50% the time with the radio asleep
-            }
+                if my_gps.has_fix() {
+                    hprintln!("GPS has fix").unwrap();
+                } else {
+                    hprintln!("GPS does not have a fix").unwrap();
+                    // wait on the radio receiving
+                    // TODO: although maybe that should be in an interrupt?
+                    // TODO: spend 50% the time with the radio asleep
+                }
+            });
         }
 
         /*

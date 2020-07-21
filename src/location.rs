@@ -8,13 +8,13 @@
 // use adafruit_gps::send_pmtk::NmeaOutput;
 use stm32f3_discovery::prelude::*;
 
-use crate::hal;
-use crate::GPSSerial;
+use crate::{hal, GPSSerial, GPS_QUEUE};
 use yanp::parse::{GpsDate, GpsPosition, GpsQuality, GpsTime, LongitudeDirection, SentenceData};
 use yanp::parse_nmea_sentence;
 
 /// TODO: use generic types instead of hard coding to match our hardware
 pub struct UltimateGps {
+    // TODO: i think we need to seperate the tx and rx into seperate structs (along with a queue that is currently static)
     tx: hal::serial::Tx<hal::stm32::USART2>,
     rx: hal::serial::Rx<hal::stm32::USART2>,
 
@@ -26,9 +26,9 @@ pub struct UltimateGps {
     enable_pin: hal::gpio::gpioc::PC6<hal::gpio::Output<hal::gpio::PushPull>>,
 
     // TODO: what size for buffer_len?
-    buffer_len: usize,
-    // TODO: what size?
-    buffer: [u8; 4096],
+    sentence_buffer_len: usize,
+    // TODO: what size? what's the longest sentence?
+    sentence_buffer: [u8; 4096],
 
     data: GpsData,
 }
@@ -81,8 +81,8 @@ impl UltimateGps {
         let (tx, rx) = uart.split();
 
         // TODO: buffer could probably be better
-        let buffer_len = 0;
-        let buffer = [0; 4096];
+        let sentence_buffer_len = 0;
+        let sentence_buffer = [0; 4096];
 
         let data = GpsData::default();
 
@@ -90,8 +90,8 @@ impl UltimateGps {
             tx,
             rx,
             enable_pin,
-            buffer_len,
-            buffer,
+            sentence_buffer_len,
+            sentence_buffer,
             data,
         }
     }
@@ -99,20 +99,42 @@ impl UltimateGps {
     /// Check for updated data from the GPS module and process it accordingly.
     /// Returns True if new data was processed, and False if nothing new was received.
     pub fn update(&mut self) -> bool {
-        if self.buffer_len < 32 {
-            return false;
+        // NOTE(unsafe) beware of aliasing the `consumer` end point
+        let mut consumer = unsafe { GPS_QUEUE.split().1 };
+
+        // pull items off the queue and into our sentence buffer
+        // stop looping when the queue is empty or when '\n' is found
+        loop {
+            // `dequeue` is a lockless operation
+            match consumer.dequeue() {
+                Some(b) => {
+                    self.sentence_buffer[self.sentence_buffer_len] = b;
+                    self.sentence_buffer_len += 1;
+
+                    if b == b'\n' {
+                        // this is the end of a message!
+                        break;
+                    }
+                }
+                None => return false,
+            }
         }
 
-        // TODO: should we disable interrupts? or maybe buffer_len needs to be atomic. or maybe a "busy" atomic to just stop read?
-        // TODO: this is wrong. we might have multiple sentences in the buffer! break the buffer into lines first
-        if let Ok(sentence) = parse_nmea_sentence(&self.buffer[0..self.buffer_len]) {
-            self.buffer_len = 0;
+        // '\n' was found! we hopefully have a valid sentence
 
-            // TODO: support other sentences?
+        // TODO: do something with the error?
+        let updated = if let Ok(sentence) =
+            parse_nmea_sentence(&self.sentence_buffer[0..self.sentence_buffer_len])
+        {
             self.data.update(sentence)
         } else {
             false
-        }
+        };
+
+        // clear the buffer
+        self.sentence_buffer_len = 0;
+
+        updated
     }
 
     /// Send a command string to the GPS.  If add_checksum is True (the
@@ -136,12 +158,22 @@ impl UltimateGps {
     }
 
     /// Read a byte into the buffer
+    /// this gets called inside an interrupt, so make this fast!
     pub fn read(&mut self) {
-        // this gets called inside an interrupt, so make this fast!
-        // TODO: if buffer is too long, skip? clear the buffer? what? maybe clear up to the first line break
-        if let Ok(b) = self.rx.read() {
-            self.buffer[self.buffer_len] = b;
-            self.buffer_len += 1;
+        // TODO: don't use globals
+        // NOTE(unsafe) beware of aliasing the `producer` end point
+        let mut producer = unsafe { GPS_QUEUE.split().0 };
+
+        if producer.ready() {
+            // the queue has room for another item
+            if let Ok(b) = self.rx.read() {
+                // NOTE(unsafe) this is fine because...
+                // 1. we just checked that the producer is ready
+                // 2. this is the only place that calls enqueue
+                unsafe {
+                    producer.enqueue_unchecked(b);
+                }
+            }
         }
     }
 
