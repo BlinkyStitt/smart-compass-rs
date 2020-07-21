@@ -453,8 +453,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "shared-bus-rtic"
-version = "0.2.1"
-source = "git+https://github.com/ryan-summers/shared-bus-rtic?branch=feature/spi-full-duplex#fad95b37a8ebb5634479b0974df8d05f531cc38a"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "embedded-hal 0.2.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "nb 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -474,7 +474,7 @@ dependencies = [
  "heapless 0.5.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "panic-semihosting 0.5.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "radio-sx127x 0.10.1",
- "shared-bus-rtic 0.2.1 (git+https://github.com/ryan-summers/shared-bus-rtic?branch=feature/spi-full-duplex)",
+ "shared-bus-rtic 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "smart-leds 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "stm32f3-discovery 0.4.0",
  "ws2812-nop-samd51 0.1.0 (git+https://github.com/WyseNynja/ws2812-nop-cortex-m.git)",
@@ -686,7 +686,7 @@ dependencies = [
 "checksum rustc_version 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)" = "138e3e0acb6c9fb258b19b67cb8abd63c00679d2851805ea151465464fe9030a"
 "checksum semver 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)" = "1d7eb9ef2c18661902cc47e535f9bc51b78acd254da71d375c2f6720d9a40403"
 "checksum semver-parser 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)" = "388a1df253eca08550bef6c72392cfe7c30914bf41df5269b68cbd6ff8f570a3"
-"checksum shared-bus-rtic 0.2.1 (git+https://github.com/ryan-summers/shared-bus-rtic?branch=feature/spi-full-duplex)" = "<none>"
+"checksum shared-bus-rtic 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "cb1899470d03c5728db375f63be8f2bbfb93d8c35ec932061f3b593434c2273b"
 "checksum smart-leds 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)" = "38dd45fa275f70b4110eac5f5182611ad384f88bb22b68b9a9c3cafd7015290b"
 "checksum smart-leds-trait 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "fef18e60d41a6fde19e640cd7590c03fb27aa23146bf60e4da85028d7410cee7"
 "checksum stable_deref_trait 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"

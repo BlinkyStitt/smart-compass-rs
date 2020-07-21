@@ -16,6 +16,7 @@ embedded-sdmmc = "0.3"
 heapless = "0.5"
 panic-semihosting = "0.5"
 radio-sx127x = { path = "../rust-radio-sx127x", default-features = false }
+shared-bus-rtic = "0.2.2"
 smart-leds = "0.3"
 yanp = "0.1.1"
 # make sure ws2812 crate uses the same smart-leds-trait crate as smart-leds
@@ -30,10 +31,6 @@ ws2812-nop-samd51 = { git = "https://github.com/WyseNynja/ws2812-nop-cortex-m.gi
 # TODO: use these from radio-sx127x
 embedded-hal = { version = "0.2.4", features = ["unproven"] }
 embedded-spi = { version = "0.6.2", default-features = false }
-
-[dependencies.shared-bus-rtic]
-git = "https://github.com/ryan-summers/shared-bus-rtic"
-branch = "feature/spi-full-duplex"
 
 [dependencies.stm32f3-discovery]
 path = "../stm32f3-discovery"

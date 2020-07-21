@@ -17,7 +17,6 @@ use stm32f3_discovery::prelude::*;
 
 use asm_delay::AsmDelay;
 use cortex_m_semihosting::hprintln;
-use heapless::mpmc::Q32;
 use rtic::app;
 use shared_bus_rtic::SharedBus;
 use stm32f3_discovery::accelerometer::RawAccelerometer;
@@ -72,6 +71,7 @@ type SpiRadio<SpiWrapper> = network::Radio<
 
 /// keep everything on the same bus inside one struct
 pub struct SharedSPIResources {
+    // TODO: gyroscope on SPI
     radio: SpiRadio<SharedBus<SpiMaster>>,
     sd_card: SdController<SharedBus<SpiMaster>>,
 }
@@ -305,13 +305,6 @@ const APP: () = {
         // TODO: should this use the rtc?
         let every_300_seconds = periodic::Periodic::new(300 * 1000);
 
-        // enable interrupts
-        // TODO: is there a helper for this?
-        unsafe {
-            hal::stm32::NVIC::unmask(hal::stm32::Interrupt::TIM4);
-            hal::stm32::NVIC::unmask(hal::stm32::Interrupt::TIM7);
-        }
-
         let shared_spi_resources = SharedSPIResources {
             radio: my_radio,
             sd_card: my_sd_card,
@@ -340,9 +333,12 @@ const APP: () = {
         shared_spi_resources,
     ])]
     fn idle(c: idle::Context) -> ! {
+        let every_300_seconds = c.resources.every_300_seconds;
         let my_compass = c.resources.compass;
         let my_compass_lights = c.resources.compass_lights;
         let my_gps = c.resources.gps;
+        let my_lights = c.resources.lights;
+        let shared_spi_resources = c.resources.shared_spi_resources;
 
         loop {
             let accel = my_compass.accel_raw().unwrap();
@@ -368,14 +364,6 @@ const APP: () = {
         }
 
         /*
-        let every_300_seconds = c.resources.every_300_seconds;
-        let my_gps = c.resources.gps;
-        let my_lights = c.resources.lights;
-        let shared_spi_resources = c.resources.shared_spi_resources;
-        let red_led = c.resources.red_led;
-
-        red_led.set_high().unwrap();
-
         loop {
             if every_300_seconds.ready() {
                 // TODO: set the brightness based on the battery level

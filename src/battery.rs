@@ -32,3 +32,7 @@ impl BatteryStatus {
         Self::Full
     }
 }
+
+struct Battery {
+    status: BatteryStatus
+}
