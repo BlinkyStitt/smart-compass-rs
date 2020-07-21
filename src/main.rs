@@ -26,7 +26,6 @@ use rtic::app;
 use shared_bus_rtic::SharedBus;
 
 /// TODO: what should we name this
-/// TODO: generic type?
 pub type SpiMaster = hal::spi::Spi<
     hal::stm32::SPI1,
     (
@@ -37,7 +36,6 @@ pub type SpiMaster = hal::spi::Spi<
 >;
 
 /// TODO: what should we name this
-/// TODO: generic type?
 type GPSSerial = hal::serial::Serial<
     hal::stm32::USART2,
     (
@@ -47,11 +45,11 @@ type GPSSerial = hal::serial::Serial<
 >;
 
 /// TODO: what should we name this
-/// TODO: generic type?
 type MyLights = lights::Lights<hal::gpio::gpioc::PC5<hal::gpio::Output<hal::gpio::PushPull>>>;
 
 /// TODO: what should we name this
-/// TODO: generic type?
+
+/// TODO: what should we name this
 type SdController<SpiWrapper> = embedded_sdmmc::Controller<
     embedded_sdmmc::SdMmcSpi<
         SpiWrapper,
@@ -60,6 +58,7 @@ type SdController<SpiWrapper> = embedded_sdmmc::Controller<
     storage::DummyTimeSource,
 >;
 
+/// TODO: what should we name this
 type SpiRadio<SpiWrapper> = network::Radio<
     SpiWrapper,
     hal::spi::Error,
@@ -71,6 +70,7 @@ type SpiRadio<SpiWrapper> = network::Radio<
     asm_delay::AsmDelay,
 >;
 
+/// keep everything on the same bus inside one struct
 pub struct SharedSPIResources {
     radio: SpiRadio<SharedBus<SpiMaster>>,
     sd_card: SdController<SharedBus<SpiMaster>>,
@@ -95,28 +95,33 @@ const APP: () = {
         compass: Compass,
         compass_lights: CompassLeds,
         lights: MyLights,
-        gps: location::Gps,
+        gps: location::UltimateGps,
         shared_spi_resources: SharedSPIResources,
-        timer4: hal::timer::Timer<hal::stm32::TIM4>,
+        // timer4: hal::timer::Timer<hal::stm32::TIM4>,
         timer7: hal::timer::Timer<hal::stm32::TIM7>,
     }
 
     // TODO: low priority?
-    #[task(binds = TIM4, resources = [timer4])]
-    fn tim4(c: tim4::Context) {
-        if c.resources.timer4.wait().is_ok() {
-            // c.resources.gps.read();
-            todo!("read gps");
-        }
-    }
+    // #[task(binds = TIM4, resources = [timer4])]
+    // fn tim4(c: tim4::Context) {
+    //     if c.resources.timer4.wait().is_ok() {
+    //         // c.resources.gps.read();
+    //         todo!("read gps");
+    //     }
+    // }
 
     /// TODO: is this how arduino's millis function works?
-    #[task(binds = TIM7, resources = [timer7])]
+    #[task(binds = TIM7, resources = [timer7, gps])]
     fn tim7(c: tim7::Context) {
         if c.resources.timer7.wait().is_ok() {
+            // TODO: use an atomic for this? or use rtic resources
             unsafe {
                 ELAPSED_MS += 1;
             }
+
+            // https://learn.adafruit.com/adafruit-ultimate-gps/parsed-data-output
+            // "if you can, get this to run once a millisecond in an interrupt"
+            c.resources.gps.read();
         }
     }
 
@@ -124,7 +129,7 @@ const APP: () = {
     #[init]
     fn init(c: init::Context) -> init::LateResources {
         // Cortex-M peripherals
-        let core = c.core;
+        // let core = c.core;
 
         // Device specific peripherals
         let device = c.device;
@@ -154,13 +159,13 @@ const APP: () = {
 
         // TODO: what other timers are available? which should we use? i'm just using 7 because thats what the example used
         // TODO: how often should we try to read the gps? the example did every 10hz, but that seems like a lot
-        let mut timer4 = hal::timer::Timer::tim4(
-            device.TIM4,
-            10.hz(),
-            clocks,
-            &mut reset_and_clock_control.apb1,
-        );
-        timer4.listen(hal::timer::Event::Update);
+        // let mut timer4 = hal::timer::Timer::tim4(
+        //     device.TIM4,
+        //     10.hz(),
+        //     clocks,
+        //     &mut reset_and_clock_control.apb1,
+        // );
+        // timer4.listen(hal::timer::Event::Update);
 
         // TODO: how many hz to 1 millisecond? i think we have a 72mhz processor, so 72000
         // TODO: calculate this in case we run at a different speed
@@ -278,9 +283,15 @@ const APP: () = {
             &mut reset_and_clock_control.apb1,
         );
 
-        let my_gps = location::Gps::new(gps_uart);
+        // TODO: what pin shuold we use? this one was random
+        let gps_enable_pin = gpioc
+            .pc6
+            .into_push_pull_output(&mut gpioc.moder, &mut gpioc.otyper);
+
+        let my_gps = location::UltimateGps::new(gps_uart, gps_enable_pin);
 
         // create lights
+        // TODO: what pin shuold we use? this one was random
         let led_data_pin = gpioc
             .pc5
             .into_push_pull_output(&mut gpioc.moder, &mut gpioc.otyper);
@@ -312,7 +323,7 @@ const APP: () = {
             lights: my_lights,
             shared_spi_resources,
             gps: my_gps,
-            timer4,
+            // timer4,
             timer7,
         }
     }
@@ -322,7 +333,7 @@ const APP: () = {
     #[idle(resources = [
         compass,
         compass_lights,
-        // every_300_seconds,
+        every_300_seconds,
         // gps,
         // lights,
         shared_spi_resources,
@@ -330,13 +341,15 @@ const APP: () = {
     ])]
     fn idle(c: idle::Context) -> ! {
         let my_compass = c.resources.compass;
-        // let my_compass_lights = c.resources.compass_lights.into_array();
+        let my_compass_lights = c.resources.compass_lights;
 
         loop {
             let accel = my_compass.accel_raw().unwrap();
             let mag = my_compass.mag_raw().unwrap();
+
+            // TODO: should we use hprintln or iprintln?
             // iprintln!(stim, "Accel:{:?}; Mag:{:?}", accel, mag);
-            hprintln!("Accel:{:?}; Mag:{:?}", accel, mag);
+            hprintln!("Accel:{:?}; Mag:{:?}", accel, mag).unwrap();
 
             wait_for_interrupt();
         }
