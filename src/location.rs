@@ -198,6 +198,18 @@ impl UltimateGps {
         self.write(b'\n');
     }
 
+    /// Turn off the module.
+    /// You will lose your fix if you disable the GPS
+    /// It will also take a long time to get fix back if you dont have the backup battery installed.
+    pub fn disable(&mut self) {
+        self.enable_pin.set_low().ok().unwrap();
+    }
+
+    /// Turn the module on
+    pub fn enable(&mut self) {
+        self.enable_pin.set_high().ok().unwrap();
+    }
+
     /// True if a current fix for location information is available
     pub fn has_fix(&self) -> bool {
         match self.data.quality {

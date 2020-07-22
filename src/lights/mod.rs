@@ -6,8 +6,6 @@ use stm32f3_discovery::prelude::*;
 use crate::periodic::Periodic;
 use smart_leds::{brightness, gamma, SmartLedsWrite, RGB8};
 use stm32f3_discovery::accelerometer::Orientation;
-// TODO: instead of disabling interrupts, use rtic's features
-use stm32f3_discovery::cortex_m::interrupt;
 use ws2812_spi::Ws2812;
 
 /// TODO: better trait bounds?
