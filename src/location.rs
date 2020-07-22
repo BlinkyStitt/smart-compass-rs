@@ -9,7 +9,7 @@
 use stm32f3_discovery::prelude::*;
 
 use crate::{hal, GPSSerial};
-use heapless::consts::U1024;
+use heapless::consts::U256;
 use heapless::spsc::{Consumer, Producer, Queue};
 use numtoa::NumToA;
 use yanp::parse::{GpsDate, GpsPosition, GpsQuality, GpsTime, LongitudeDirection, SentenceData};
@@ -17,7 +17,7 @@ use yanp::parse_nmea_sentence;
 
 /// TODO: use generic types instead of hard coding to match our hardware
 pub struct UltimateGps {
-    queue_rx: Consumer<'static, u8, U1024>,
+    queue_rx: Consumer<'static, u8, U256>,
     serial_tx: hal::serial::Tx<hal::stm32::USART2>,
 
     /// EN is the Enable pin, it is pulled high with a 10K resistor.
@@ -30,14 +30,14 @@ pub struct UltimateGps {
     // TODO: what size for buffer_len?
     sentence_buffer_len: usize,
     // TODO: what size? what's the longest sentence?
-    sentence_buffer: [u8; 4096],
+    sentence_buffer: [u8; 82],
 
     data: GpsData,
 }
 
 pub struct UltimateGpsUpdater {
     serial_rx: hal::serial::Rx<hal::stm32::USART2>,
-    queue_tx: Producer<'static, u8, U1024>,
+    queue_tx: Producer<'static, u8, U256>,
 }
 
 impl UltimateGpsUpdater {
@@ -107,13 +107,14 @@ impl UltimateGps {
 
         // `heapless::i` is an "unfortunate implementation detail required to construct heapless types in const context"
         // TODO: do the static outside this?
-        static mut Q: Queue<u8, U1024> = Queue(heapless::i::Queue::new());
+        static mut Q: Queue<u8, U256> = Queue(heapless::i::Queue::new());
 
         let (queue_tx, queue_rx) = unsafe { Q.split() };
 
         // TODO: buffer could probably be better
         let sentence_buffer_len = 0;
-        let sentence_buffer = [0; 4096];
+        // TODO: how should we handle a buffer overflow?
+        let sentence_buffer = [0; 82];
 
         let data = GpsData::default();
 
