@@ -6,22 +6,23 @@ use stm32f3_discovery::prelude::*;
 use crate::periodic::Periodic;
 use smart_leds::{brightness, gamma, SmartLedsWrite, RGB8};
 use stm32f3_discovery::accelerometer::Orientation;
+// TODO: instead of disabling interrupts, use rtic's features
 use stm32f3_discovery::cortex_m::interrupt;
-use ws2812_nop_samd51::Ws2812;
+use ws2812_spi::Ws2812;
 
 /// TODO: better trait bounds?
-pub struct Lights<Pin: _embedded_hal_digital_OutputPin> {
+pub struct Lights<SpiWrapper: _embedded_hal_spi_FullDuplex<u8>> {
     brightness: u8,
     framerate: Periodic,
-    lights: Ws2812<Pin>,
+    lights: Ws2812<SpiWrapper>,
     orientation: Orientation,
 
     light_data: [RGB8; 256],
 }
 
-impl<Pin: _embedded_hal_digital_OutputPin> Lights<Pin> {
-    pub fn new(pin: Pin, brightness: u8, frames_per_second: u8) -> Self {
-        let lights = Ws2812::new(pin);
+impl<SpiWrapper: _embedded_hal_spi_FullDuplex<u8>> Lights<SpiWrapper> {
+    pub fn new(spi: SpiWrapper, brightness: u8, frames_per_second: u8) -> Self {
+        let lights = Ws2812::new(spi);
 
         let light_data: [RGB8; 256] = [RGB8::default(); 256];
 
@@ -65,6 +66,10 @@ impl<Pin: _embedded_hal_digital_OutputPin> Lights<Pin> {
     }
 
     pub fn update_pretty_lights(&mut self, orientation_changed: bool) {
+        todo!();
+    }
+
+    pub fn blocking_test_pattern(&mut self) {
         todo!();
     }
 
@@ -119,7 +124,7 @@ impl<Pin: _embedded_hal_digital_OutputPin> Lights<Pin> {
 
         // display (without interrupts)
         interrupt::free(|_cs| {
-            self.lights.write(data).unwrap();
+            self.lights.write(data).ok().unwrap();
         });
     }
 }

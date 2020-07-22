@@ -19,18 +19,27 @@ use asm_delay::AsmDelay;
 use cortex_m_semihosting::hprintln;
 use rtic::app;
 use shared_bus_rtic::SharedBus;
-use stm32f3_discovery::accelerometer::RawAccelerometer;
+use stm32f3_discovery::accelerometer::{Orientation, RawAccelerometer};
 use stm32f3_discovery::compass::Compass;
 use stm32f3_discovery::hal;
 use stm32f3_discovery::leds::Leds as CompassLeds;
 
 /// TODO: what should we name this
-pub type SpiMaster = hal::spi::Spi<
+pub type MySpi1 = hal::spi::Spi<
     hal::stm32::SPI1,
     (
         hal::gpio::gpioa::PA5<hal::gpio::AF5>,
         hal::gpio::gpioa::PA6<hal::gpio::AF5>,
         hal::gpio::gpioa::PA7<hal::gpio::AF5>,
+    ),
+>;
+
+pub type MySpi2 = hal::spi::Spi<
+    hal::stm32::SPI2,
+    (
+        hal::gpio::gpiob::PB13<hal::gpio::AF5>,
+        hal::gpio::gpiob::PB14<hal::gpio::AF5>,
+        hal::gpio::gpiob::PB15<hal::gpio::AF5>,
     ),
 >;
 
@@ -44,7 +53,7 @@ type GPSSerial = hal::serial::Serial<
 >;
 
 /// TODO: what should we name this
-type MyLights = lights::Lights<hal::gpio::gpioc::PC5<hal::gpio::Output<hal::gpio::PushPull>>>;
+type MyLights = lights::Lights<MySpi2>;
 
 /// TODO: what should we name this
 
@@ -70,10 +79,11 @@ type SpiRadio<SpiWrapper> = network::Radio<
 >;
 
 /// keep everything on the same bus inside one struct
+/// notice that the lights are NOT included here. they use SPI, but a different bus!
 pub struct SharedSPIResources {
     // TODO: gyroscope on SPI
-    radio: SpiRadio<SharedBus<SpiMaster>>,
-    sd_card: SdController<SharedBus<SpiMaster>>,
+    radio: SpiRadio<SharedBus<MySpi1>>,
+    sd_card: SdController<SharedBus<MySpi1>>,
 }
 
 // static globals
@@ -176,6 +186,7 @@ const APP: () = {
             clocks,
             &mut reset_and_clock_control.apb1,
         );
+        // TODO: is this `listen` needed? does rtic handle this for us?
         timer7.listen(hal::timer::Event::Update);
 
         // TODO: shared-bus for the i2c?
@@ -215,7 +226,7 @@ const APP: () = {
         };
 
         // TODO: what frequency?
-        let my_spi: SpiMaster = hal::spi::Spi::spi1(
+        let my_spi: MySpi1 = hal::spi::Spi::spi1(
             device.SPI1,
             (sck, miso, mosi),
             spi_mode,
@@ -225,7 +236,7 @@ const APP: () = {
         );
 
         // SPI is shared between radio, sensors, and the SD card
-        let shared_spi_manager = shared_bus_rtic::new!(my_spi, SpiMaster);
+        let shared_spi_manager = shared_bus_rtic::new!(my_spi, MySpi1);
 
         // setup sd card
         let sd_spi = shared_spi_manager.acquire();
@@ -293,14 +304,24 @@ const APP: () = {
         let (my_gps, my_gps_updater) = location::UltimateGps::new(gps_uart, gps_enable_pin);
 
         // create lights
-        // TODO: use another SPI (at 3mhz) to control the leds?
+        // TODO: is spi a good interface for this? whats the best way to run ws2812s?
         // TODO: what pin shuold we use? this one was random
-        let led_data_pin = gpioc
-            .pc5
-            .into_push_pull_output(&mut gpioc.moder, &mut gpioc.otyper);
+        // pick pins that `impl MisoPin<SPI2>`, `impl MosiPin<SPI2>`, `impl SckPin<SPI2>`
+        let miso2 = gpiob.pb14.into_af5(&mut gpiob.moder, &mut gpiob.afrh);
+        let mosi2 = gpiob.pb15.into_af5(&mut gpiob.moder, &mut gpiob.afrh);
+        let sck2 = gpiob.pb13.into_af5(&mut gpiob.moder, &mut gpiob.afrh);
+
+        let lights_spi: MySpi2 = hal::spi::Spi::spi2(
+            device.SPI2,
+            (sck2, miso2, mosi2),
+            ws2812_spi::MODE,
+            3.mhz(),
+            clocks,
+            &mut reset_and_clock_control.apb1,
+        );
 
         let my_lights: MyLights =
-            lights::Lights::new(led_data_pin, DEFAULT_BRIGHTNESS, FRAMES_PER_SECOND);
+            lights::Lights::new(lights_spi, DEFAULT_BRIGHTNESS, FRAMES_PER_SECOND);
 
         let battery =
             battery::Battery::new(gpioc.pc8, &mut gpioc.moder, &mut gpioc.pupdr, 300 * 1000);
@@ -340,6 +361,10 @@ const APP: () = {
         let my_lights = c.resources.lights;
         let shared_spi_resources = c.resources.shared_spi_resources;
 
+        // TODO: configure gps
+
+        my_lights.blocking_test_pattern();
+
         loop {
             match my_battery.check() {
                 (false, _) => { /* no change */ }
@@ -358,57 +383,36 @@ const APP: () = {
             // iprintln!(stim, "Accel:{:?}; Mag:{:?}", accel, mag);
             hprintln!("Accel:{:?}; Mag:{:?}", accel, mag).unwrap();
 
+            // TODO: get the actual orientation from a sensor
+            // TODO: should this be a global? should it happen on interrupt?
+            let orientation = Orientation::Unknown;
+
+            my_lights.set_orientation(orientation);
+
+            my_lights.draw();
+
             // TODO: do we need to lock the gps? i think without a lock the interrupt could have issues
             if my_gps.update() {
                 hprintln!("GPS updated").unwrap();
             }
 
+            my_lights.draw();
+
             if my_gps.has_fix() {
                 hprintln!("GPS has fix").unwrap();
+
+            // TODO: get the time from the GPS
+
+            // TODO: get the time_segment_id
+
+            // TODO: get the broadcasting_peer_id and broadcasted_peer_id
+
+            // TODO: radio transmit or receive depending on the time_segment_id
             } else {
                 hprintln!("GPS does not have a fix").unwrap();
                 // wait on the radio receiving
                 // TODO: although maybe that should be in an interrupt?
                 // TODO: spend 50% the time with the radio asleep
-            }
-        }
-
-        /*
-        loop {
-            if every_300_seconds.ready() {
-                // TODO: set the brightness based on the battery level
-                // TODO: is rounding here okay?
-                let new_brightness = match battery::BatteryStatus::check() {
-                    battery::BatteryStatus::Dead => DEFAULT_BRIGHTNESS / 2,
-                    battery::BatteryStatus::Low => DEFAULT_BRIGHTNESS / 4 * 3,
-                    battery::BatteryStatus::Okay => DEFAULT_BRIGHTNESS / 10 * 9,
-                    battery::BatteryStatus::Full => DEFAULT_BRIGHTNESS,
-                };
-
-                my_lights.set_brightness(new_brightness);
-            }
-
-            // TODO: get the actual orientation from a sensor
-            // TODO: should this be a global?
-            let orientation = accelerometer::Orientation::Unknown;
-
-            my_lights.set_orientation(orientation);
-
-            // TODO: get location from the GPS
-
-            my_lights.draw();
-
-            // TODO: if we have a GPS fix,
-            if false {
-                // TODO: get the time from the GPS
-
-                // TODO: get the time_segment_id
-
-                // TODO: get the broadcasting_peer_id and broadcasted_peer_id
-
-                // TODO: radio transmit or receive depending on the time_segment_id
-            } else {
-                // TODO: radio receive
             }
 
             // draw again because the using radio can take a while
@@ -416,6 +420,5 @@ const APP: () = {
 
             // TODO: fastLED.delay equivalent to improve brightness? make sure it doesn't block the radios!
         }
-        */
     }
 };

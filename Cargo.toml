@@ -21,7 +21,7 @@ smart-leds = "0.3"
 yanp = "0.1.1"
 # make sure ws2812 crate uses the same smart-leds-trait crate as smart-leds
 # TODO: is this crate compatible? do we need one for a stm32f3?
-ws2812-nop-samd51 = { git = "https://github.com/WyseNynja/ws2812-nop-cortex-m.git" }
+ws2812-spi = "*"
 
 # TODO: these require std
 # adafruit_gps = "0.3"
