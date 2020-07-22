@@ -25,7 +25,7 @@ pub struct UltimateGps {
     /// This can be handy for very low power projects where you want to easily turn the module off for long periods.
     /// You will lose your fix if you disable the GPS and it will also take a long time to get fix back if you dont
     /// have the backup battery installed.
-    enable_pin: hal::gpio::gpioc::PC6<hal::gpio::Output<hal::gpio::PushPull>>,
+    enable_pin: hal::gpio::PXx<hal::gpio::Output<hal::gpio::OpenDrain>>,
 
     // TODO: what size for buffer_len?
     sentence_buffer_len: usize,
@@ -101,7 +101,7 @@ impl GpsData {
 impl UltimateGps {
     pub fn new(
         uart: GPSSerial,
-        enable_pin: hal::gpio::gpioc::PC6<hal::gpio::Output<hal::gpio::PushPull>>,
+        enable_pin: hal::gpio::PXx<hal::gpio::Output<hal::gpio::OpenDrain>>,
     ) -> (Self, UltimateGpsUpdater) {
         let (serial_tx, serial_rx) = uart.split();
 
@@ -120,7 +120,7 @@ impl UltimateGps {
         let gps = Self {
             queue_rx,
             serial_tx,
-            enable_pin,
+            enable_pin: enable_pin,
             sentence_buffer_len,
             sentence_buffer,
             data,

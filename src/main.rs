@@ -21,6 +21,7 @@ use rtic::app;
 use shared_bus_rtic::SharedBus;
 use stm32f3_discovery::accelerometer::{Orientation, RawAccelerometer};
 use stm32f3_discovery::compass::Compass;
+use stm32f3_discovery::cortex_m::asm::delay;
 use stm32f3_discovery::hal;
 use stm32f3_discovery::leds::Leds as CompassLeds;
 
@@ -296,10 +297,12 @@ const APP: () = {
             &mut reset_and_clock_control.apb1,
         );
 
-        // TODO: what pin shuold we use? this one was random
+        // TODO: what pin should we use? this one was random
         let gps_enable_pin = gpioc
             .pc6
-            .into_push_pull_output(&mut gpioc.moder, &mut gpioc.otyper);
+            .into_open_drain_output(&mut gpioc.moder, &mut gpioc.otyper)
+            .downgrade()
+            .downgrade();
 
         let (my_gps, my_gps_updater) = location::UltimateGps::new(gps_uart, gps_enable_pin);
 
@@ -323,8 +326,9 @@ const APP: () = {
         let my_lights: MyLights =
             lights::Lights::new(lights_spi, DEFAULT_BRIGHTNESS, FRAMES_PER_SECOND);
 
-        let battery =
-            battery::Battery::new(gpioc.pc8, &mut gpioc.moder, &mut gpioc.pupdr, 300 * 1000);
+        // TODO: how often should we do this?
+        // check the batterry every minute
+        let battery = battery::Battery::new(gpioc.pc8, &mut gpioc.moder, &mut gpioc.pupdr, 60_000);
 
         let shared_spi_resources = SharedSPIResources {
             radio: my_radio,
@@ -364,7 +368,8 @@ const APP: () = {
         // TODO: configure gps
 
         my_lights.draw_test_pattern();
-        // TODO: delay for 1 seconnd
+        // delay for 1 seconnd
+        delay(72_000_000);
 
         loop {
             match my_battery.check() {
