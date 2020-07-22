@@ -365,19 +365,32 @@ const APP: () = {
         let my_lights = c.resources.lights;
         let shared_spi_resources = c.resources.shared_spi_resources;
 
-        // TODO: configure gps
+        // configure gps
+        // get the version (PMTK_Q_RELEASE)
+        my_gps.send_command(b"$PMTK605*31");
+
+        // turn on GPRMC and GGA (PMTK_SET_NMEA_OUTPUT_RMCGGA)
+        my_gps.send_command(b"PMTK314,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0");
+
+        // set the update frequency
+        // PMTK_SET_NMEA_UPDATE_1HZ - 1000
+        // PMTK_SET_NMEA_UPDATE_5HZ - 200
+        // PMTK_SET_NMEA_UPDATE_10HZ - 100
+        my_gps.send_command(b"PMTK220,1000");
 
         my_lights.draw_test_pattern();
-        // delay for 1 seconnd
+        // delay for 1 second (TODO: use a helper for calculating 1 second in cycles)
         delay(72_000_000);
 
         loop {
             match my_battery.check() {
                 (false, _) => { /* no change */ }
                 (true, battery::BatteryStatus::Low) => {
+                    hprintln!("Battery low").unwrap();
                     my_lights.set_brightness(DEFAULT_BRIGHTNESS / 2);
                 }
                 (true, battery::BatteryStatus::Ok) => {
+                    hprintln!("Battery ok").unwrap();
                     my_lights.set_brightness(DEFAULT_BRIGHTNESS);
                 }
             }
@@ -397,7 +410,6 @@ const APP: () = {
 
             my_lights.draw();
 
-            // TODO: do we need to lock the gps? i think without a lock the interrupt could have issues
             if my_gps.update() {
                 hprintln!("GPS updated").unwrap();
             }
@@ -407,13 +419,14 @@ const APP: () = {
             if my_gps.has_fix() {
                 hprintln!("GPS has fix").unwrap();
 
-            // TODO: get the time from the GPS
+                // TODO: get the time from the GPS
 
-            // TODO: get the time_segment_id
+                // TODO: get the time_segment_id
 
-            // TODO: get the broadcasting_peer_id and broadcasted_peer_id
+                // TODO: get the broadcasting_peer_id and broadcasted_peer_id
 
-            // TODO: radio transmit or receive depending on the time_segment_id
+                // TODO: radio transmit or receive depending on the time_segment_id
+                todo!();
             } else {
                 hprintln!("GPS does not have a fix").unwrap();
                 // wait on the radio receiving
