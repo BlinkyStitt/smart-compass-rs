@@ -16,6 +16,7 @@ pub struct Lights<SpiWrapper: _embedded_hal_spi_FullDuplex<u8>> {
     framerate: Periodic,
     lights: Ws2812<SpiWrapper>,
     orientation: Orientation,
+    last_orientation: Orientation,
 
     light_data: [RGB8; 256],
 }
@@ -31,12 +32,14 @@ impl<SpiWrapper: _embedded_hal_spi_FullDuplex<u8>> Lights<SpiWrapper> {
         let framerate = Periodic::new(framerate_ms);
 
         let orientation = Orientation::Unknown;
+        let last_orientation = Orientation::Unknown;
 
         Self {
             brightness,
             framerate,
             lights,
             orientation,
+            last_orientation,
             light_data,
         }
     }
@@ -47,10 +50,6 @@ impl<SpiWrapper: _embedded_hal_spi_FullDuplex<u8>> Lights<SpiWrapper> {
 
     pub fn set_orientation(&mut self, new_orientation: Orientation) {
         self.orientation = new_orientation;
-    }
-
-    pub fn draw_test_pattern(&mut self) {
-        todo!("draw 1 red, 2 green, 3 blue and delay for 1 second");
     }
 
     pub fn update_flashlight(&mut self, orientation_changed: bool) {
@@ -69,21 +68,54 @@ impl<SpiWrapper: _embedded_hal_spi_FullDuplex<u8>> Lights<SpiWrapper> {
         todo!();
     }
 
-    pub fn blocking_test_pattern(&mut self) {
-        todo!();
+    pub fn draw_test_pattern(&mut self) {
+        let mut data: [RGB8; 6] = [RGB8::default(); 6];
+
+        data[0] = RGB8 {
+            r: 0xFF,
+            g: 0,
+            b: 0,
+        };
+        data[1] = RGB8 {
+            r: 0,
+            g: 0xFF,
+            b: 0,
+        };
+        data[2] = RGB8 {
+            r: 0,
+            g: 0xFF,
+            b: 0,
+        };
+        data[3] = RGB8 {
+            r: 0,
+            g: 0,
+            b: 0xFF,
+        };
+        data[4] = RGB8 {
+            r: 0,
+            g: 0,
+            b: 0xFF,
+        };
+        data[5] = RGB8 {
+            r: 0,
+            g: 0,
+            b: 0xFF,
+        };
+
+        // TODO: do this without cloning?
+        self.lights.write(data.iter().cloned()).ok().unwrap();
     }
 
     /// TODO: return the result instead of unwrapping?
+    /// TODO: split this into two functions, one for buffering and one for drawing? (it will need the time that the draw function is expected)
     pub fn draw(&mut self) {
-        static mut LAST_ORIENTATION: Orientation = Orientation::Unknown;
-
         if !self.framerate.ready() {
             return;
         }
 
         let my_brightness = self.brightness;
 
-        let orientation_changed = unsafe { LAST_ORIENTATION == self.orientation };
+        let orientation_changed = self.last_orientation == self.orientation;
 
         match self.orientation {
             Orientation::FaceDown => {
@@ -108,9 +140,7 @@ impl<SpiWrapper: _embedded_hal_spi_FullDuplex<u8>> Lights<SpiWrapper> {
         };
 
         if orientation_changed {
-            unsafe {
-                LAST_ORIENTATION = self.orientation;
-            }
+            self.last_orientation = self.orientation;
         }
 
         // get the data
@@ -122,10 +152,9 @@ impl<SpiWrapper: _embedded_hal_spi_FullDuplex<u8>> Lights<SpiWrapper> {
         // dim the lights
         let data = brightness(data, my_brightness);
 
-        // display (without interrupts)
-        interrupt::free(|_cs| {
-            self.lights.write(data).ok().unwrap();
-        });
+        // display
+        // some drivers may need us to disable interrupts, but SPI should work with them
+        self.lights.write(data).ok().unwrap();
     }
 }
 

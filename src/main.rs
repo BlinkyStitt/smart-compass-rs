@@ -363,7 +363,8 @@ const APP: () = {
 
         // TODO: configure gps
 
-        my_lights.blocking_test_pattern();
+        my_lights.draw_test_pattern();
+        // TODO: delay for 1 seconnd
 
         loop {
             match my_battery.check() {

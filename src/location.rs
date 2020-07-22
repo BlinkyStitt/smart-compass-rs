@@ -11,6 +11,7 @@ use stm32f3_discovery::prelude::*;
 use crate::{hal, GPSSerial};
 use heapless::consts::U1024;
 use heapless::spsc::{Consumer, Producer, Queue};
+use numtoa::NumToA;
 use yanp::parse::{GpsDate, GpsPosition, GpsQuality, GpsTime, LongitudeDirection, SentenceData};
 use yanp::parse_nmea_sentence;
 
@@ -175,8 +176,26 @@ impl UltimateGps {
     /// default) a NMEA checksum will automatically be computed and added.
     /// Note you should NOT add the leading $ and trailing * to the command
     /// as they will automatically be added!
-    pub fn send_command(&self, command: (), add_checksum: bool) {
-        todo!()
+    pub fn send_command(&mut self, command: &[u8]) {
+        self.write(b'$');
+
+        let mut checksum = 0u8;
+
+        for b in command.iter() {
+            self.write(*b);
+            checksum ^= b;
+        }
+
+        let mut checksum_buf = [0u8; 2];
+
+        let checksum = checksum.numtoa(16, &mut checksum_buf);
+
+        for b in checksum.iter() {
+            self.write(*b);
+        }
+
+        self.write(b'\r');
+        self.write(b'\n');
     }
 
     /// True if a current fix for location information is available
@@ -187,10 +206,12 @@ impl UltimateGps {
         }
     }
 
+    #[inline]
     pub fn data(&self) -> &GpsData {
         &self.data
     }
 
+    #[inline]
     pub fn write(&mut self, word: u8) {
         self.serial_tx.write(word).ok().unwrap();
     }
