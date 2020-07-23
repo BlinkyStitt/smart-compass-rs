@@ -119,9 +119,9 @@ impl GpsData {
 
         // TODO: i'm sure this could be more efficient
         // TODO: use pps_pin on an interrupt to increment this
-        match (&self.date, &self.time) {
+        match (self.date, self.time) {
             (Some(gps_date), Some(gps_time)) => {
-                let now = time::PrimitiveDateTime::new(gps_date.clone(), gps_time.clone());
+                let now = time::PrimitiveDateTime::new(gps_date, gps_time);
 
                 let epoch_seconds = (now - epoch).whole_seconds() as u32;
 
