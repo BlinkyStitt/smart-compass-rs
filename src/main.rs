@@ -410,7 +410,7 @@ const APP: () = {
 
         // configure gps
         // get the version (PMTK_Q_RELEASE)
-        my_gps.send_command(b"$PMTK605*31");
+        my_gps.send_command(b"PMTK605");
 
         // turn on GPRMC and GGA (PMTK_SET_NMEA_OUTPUT_RMCGGA)
         my_gps.send_command(b"PMTK314,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0");
