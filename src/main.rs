@@ -1,5 +1,6 @@
 #![no_main]
 #![no_std]
+#![feature(alloc_error_handler)]
 
 // panic handler
 use panic_semihosting as _;
@@ -15,15 +16,22 @@ mod storage;
 
 use stm32f3_discovery::prelude::*;
 
+use alloc_cortex_m::CortexMHeap;
 use asm_delay::AsmDelay;
+use core::alloc::Layout;
 use cortex_m_semihosting::hprintln;
 use rtic::app;
 use shared_bus_rtic::SharedBus;
 use stm32f3_discovery::accelerometer::{Orientation, RawAccelerometer};
 use stm32f3_discovery::compass::Compass;
 use stm32f3_discovery::cortex_m::asm::delay;
+use stm32f3_discovery::cortex_m_rt;
 use stm32f3_discovery::hal;
 use stm32f3_discovery::leds::Leds as CompassLeds;
+
+// TODO: i'm not sure what I did to require an allocator
+#[global_allocator]
+static ALLOCATOR: CortexMHeap = CortexMHeap::empty();
 
 /// TODO: what should we name this
 // TODO: less specific type than AF5
@@ -144,6 +152,11 @@ const APP: () = {
     /// setup the hardware
     #[init]
     fn init(c: init::Context) -> init::LateResources {
+        // Initialize the allocator BEFORE you use it
+        let start = cortex_m_rt::heap_start() as usize;
+        let size = 1024; // in bytes
+        unsafe { ALLOCATOR.init(start, size) }
+
         // Cortex-M peripherals
         // let core = c.core;
 
@@ -468,11 +481,10 @@ const APP: () = {
                 let gps_data = my_gps.data();
 
                 if let Some(epoch_seconds) = gps_data.epoch_seconds {
-                    let epoch_seconds = epoch_seconds as usize;
-
                     // TODO: the seconds being a float is really annoying. i don't want to bring floats into this
 
-                    let time_segment_id = (epoch_seconds / TIME_SEGMENT_S) % NUM_TIME_SEGMENTS;
+                    let time_segment_id =
+                        (epoch_seconds as usize / TIME_SEGMENT_S) % NUM_TIME_SEGMENTS;
 
                     let broadcasting_peer_id = time_segment_id / MAX_PEERS;
                     let broadcasted_peer_id = time_segment_id % MAX_PEERS;
@@ -480,7 +492,11 @@ const APP: () = {
                     // radio transmit or receive depending on the time_segment_id
                     // TODO: spend 50% the time with the radio asleep?
                     if broadcasting_peer_id == my_peer_id {
-                        shared_spi_resources.network.transmit(broadcasted_peer_id);
+                        shared_spi_resources.network.transmit(
+                            epoch_seconds,
+                            time_segment_id,
+                            broadcasted_peer_id,
+                        );
                     } else {
                         shared_spi_resources.network.try_receive();
                     }
@@ -502,3 +518,8 @@ const APP: () = {
         }
     }
 };
+
+#[alloc_error_handler]
+fn oom(_: Layout) -> ! {
+    loop {}
+}

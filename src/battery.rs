@@ -55,6 +55,6 @@ impl Battery {
             }
         }
 
-        return (changed, self.status);
+        (changed, self.status)
     }
 }

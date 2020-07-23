@@ -164,7 +164,7 @@ impl UltimateGps {
         let gps = Self {
             queue_rx,
             serial_tx,
-            enable_pin: enable_pin,
+            enable_pin,
             sentence_buffer_len,
             sentence_buffer,
             data,

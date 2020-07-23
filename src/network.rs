@@ -55,7 +55,7 @@ pub struct Network<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, 
     my_hue: u8,
     my_saturation: u8,
     network_hash: [u8; 16],
-    locations: [Option<CompassLocation>; MAX_PEERS],
+    locations: [Option<(CompassLocation, usize)>; MAX_PEERS],
 }
 
 impl<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay>
@@ -115,25 +115,27 @@ where
             todo!();
         }
 
-        if let Some(old_location) = &self.locations[peer_id] {
+        if let Some((old_location, _)) = &self.locations[peer_id] {
             if old_location.last_updated_at >= message.location.last_updated_at {
                 // we already have this message (or a newer one)
                 return;
             }
         }
 
-        self.locations[peer_id] = Some(message.location);
+        self.locations[peer_id] = Some((message.location, 0));
     }
 
     pub fn save_my_location(&mut self, last_updated_at: u32, position: &GpsPosition) {
         match &mut self.locations[self.my_peer_id] {
-            Some(compass_location) => {
+            Some((compass_location, broadcast_at)) => {
                 compass_location.last_updated_at = last_updated_at;
                 compass_location.latitude = position.lat;
                 compass_location.longitude = position.lon;
+
+                *broadcast_at = 0;
             }
             None => {
-                self.locations[self.my_peer_id] = Some(CompassLocation {
+                let location = CompassLocation {
                     network_hash: self.network_hash,
                     peer_id: self.my_peer_id,
                     last_updated_at,
@@ -141,40 +143,49 @@ where
                     saturation: self.my_saturation,
                     latitude: position.lat,
                     longitude: position.lon,
-                });
+                };
+
+                self.locations[self.my_peer_id] = Some((location, 0));
             }
         }
     }
 
-    pub fn transmit(&mut self, peer_id: usize) {
-        if self.current_mode == Mode::Transmit {
-            if self.radio.check_transmit().ok().unwrap() {
-                // another transmission is in process. skip
-                return;
-            }
+    pub fn transmit(&mut self, now: u32, time_segment_id: usize, peer_id: usize) {
+        if self.current_mode == Mode::Transmit && self.radio.check_transmit().ok().unwrap() {
+            // another transmission is in process. skip
+            return;
+        } else {
+            self.current_mode = Mode::Transmit;
         }
 
-        self.current_mode = Mode::Transmit;
+        if let Some((location, broadcasted_at_id)) = &mut self.locations[peer_id] {
+            if *broadcasted_at_id <= time_segment_id {
+                // we've already broadcast this transaction
+                return;
+            }
 
-        // TODO: reuse the message and serialzer
-        let message = Message {
-            location: self.locations[peer_id].unwrap().clone(),
-            tx_ms: unsafe { ELAPSED_MS },
-            tx_peer_id: self.my_peer_id,
-            tx_time: 0,
-        };
+            *broadcasted_at_id = time_segment_id;
 
-        let mut buf = [0u8; 255];
-        let writer = SliceWrite::new(&mut buf[..]);
-        let mut ser = Serializer::new(writer);
-        message
-            .serialize(&mut ser)
-            .expect("Failed serializing message for transmission");
+            // TODO: reuse the message and serialzer
+            let message = Message {
+                location: *location,
+                tx_ms: unsafe { ELAPSED_MS },
+                tx_peer_id: self.my_peer_id,
+                tx_time: now,
+            };
 
-        self.radio.start_transmit(&buf).ok().unwrap();
+            let mut buf = [0u8; 255];
+            let writer = SliceWrite::new(&mut buf[..]);
+            let mut ser = Serializer::new(writer);
+            message
+                .serialize(&mut ser)
+                .expect("Failed serializing message for transmission");
 
-        // TODO: mark this data as transmitted
-        // TODO: block until transmission is complete?
+            self.radio.start_transmit(&buf).ok().unwrap();
+
+            // TODO: mark this data as transmitted
+            // TODO: block until transmission is complete?
+        }
     }
 
     pub fn try_receive(&mut self) {
