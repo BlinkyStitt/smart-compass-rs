@@ -467,15 +467,12 @@ const APP: () = {
 
                 let gps_data = my_gps.data();
 
-                if let Some(time) = gps_data.time {
-                    // TODO: should we use the time from an rtc instead? if we have 1 hz updates, so i think the gps time could drift
-                    // TODO: is the number of seconds available directly? castnig and multiplying and adding seems slow. can we get any more accurate of a time?
-                    // TODO: does converting from a f32 (thats >= 0) to usize work like I want?
-                    let seconds_today: usize = todo!();
+                if let Some(epoch_seconds) = gps_data.epoch_seconds {
+                    let epoch_seconds = epoch_seconds as usize;
 
                     // TODO: the seconds being a float is really annoying. i don't want to bring floats into this
 
-                    let time_segment_id = (seconds_today / TIME_SEGMENT_S) % NUM_TIME_SEGMENTS;
+                    let time_segment_id = (epoch_seconds / TIME_SEGMENT_S) % NUM_TIME_SEGMENTS;
 
                     let broadcasting_peer_id = time_segment_id / MAX_PEERS;
                     let broadcasted_peer_id = time_segment_id % MAX_PEERS;

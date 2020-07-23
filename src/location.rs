@@ -12,7 +12,7 @@ use crate::{hal, GPSSerial};
 use heapless::consts::U256;
 use heapless::spsc::{Consumer, Producer, Queue};
 use numtoa::NumToA;
-use yanp::parse::{GpsDate, GpsPosition, GpsQuality, GpsTime, LongitudeDirection, SentenceData};
+use yanp::parse::{GpsPosition, GpsQuality, LongitudeDirection, SentenceData};
 use yanp::parse_nmea_sentence;
 
 /// TODO: use generic types instead of hard coding to match our hardware
@@ -32,6 +32,7 @@ pub struct UltimateGps {
     // TODO: what size? what's the longest sentence?
     sentence_buffer: [u8; 82],
 
+    epoch: time::PrimitiveDateTime,
     data: GpsData,
 }
 
@@ -61,37 +62,55 @@ impl UltimateGpsQueue {
 /// There's a lot more information available, but we don't need it right now
 #[derive(Default)]
 pub struct GpsData {
-    pub date: Option<GpsDate>,
+    pub date: Option<time::Date>,
     pub magnetic_variation: Option<f32>,
     pub magnetic_direction: Option<LongitudeDirection>,
     pub position: Option<GpsPosition>,
     pub quality: Option<GpsQuality>,
     pub knots: Option<f32>,
     pub heading: Option<f32>,
-    pub time: Option<GpsTime>,
+    pub time: Option<time::Time>,
     pub sats_in_view: Option<u8>,
-    // pub date_time: Option<time::PrimitiveDateTime>,
+    pub epoch_seconds: Option<u32>,
 }
 
 impl GpsData {
-    pub fn update(&mut self, data: SentenceData) -> bool {
+    pub fn update(&mut self, epoch: time::PrimitiveDateTime, data: SentenceData) -> bool {
         // TODO: support other sentences? GSA for 2d vs 3d fix?
         match data {
             SentenceData::GGA(data) => {
-                // self.time =
-                //     time::Time::try_from_hms(data.time.hour, date.time.minute, data.time.second);
+                if let Some(gps_time) = data.time {
+                    self.time = time::Time::try_from_hms(
+                        gps_time.hour,
+                        gps_time.minute,
+                        gps_time.second as u8,
+                    )
+                    .ok();
+                }
                 self.position = Some(data.position);
                 self.quality = data.quality;
                 self.sats_in_view = data.sats_in_view;
             }
             SentenceData::RMC(data) => {
-                // self.time =
-                //     time::Time::try_from_hms(data.time.hour, date.time.minute, data.time.second);
+                if let Some(gps_time) = data.time {
+                    self.time = time::Time::try_from_hms(
+                        gps_time.hour,
+                        gps_time.minute,
+                        gps_time.second as u8,
+                    )
+                    .ok();
+                }
                 self.position = Some(data.position);
                 self.knots = data.speed;
                 self.heading = data.heading;
-                // self.date =
-                //     time::Date::try_from_ymd(data.date.year, data.date.month, data.date.day);
+                if let Some(gps_date) = data.date {
+                    self.date = time::Date::try_from_ymd(
+                        gps_date.year as i32,
+                        gps_date.month,
+                        gps_date.day,
+                    )
+                    .ok();
+                }
                 self.magnetic_variation = data.magnetic_variation;
                 self.magnetic_direction = data.magnetic_direction;
             }
@@ -99,12 +118,14 @@ impl GpsData {
         }
 
         // TODO: i'm sure this could be more efficient
+        // TODO: use pps_pin on an interrupt to increment this
         match (&self.date, &self.time) {
             (Some(gps_date), Some(gps_time)) => {
-                // let date_time = time::PrimitiveDateTime::new(gps_date.clone(), gps_time.clone());
+                let now = time::PrimitiveDateTime::new(gps_date.clone(), gps_time.clone());
 
-                // self.date_time = Some(date_time);
-                todo!();
+                let epoch_seconds = (now - epoch).whole_seconds() as u32;
+
+                self.epoch_seconds = Some(epoch_seconds);
             }
             _ => {}
         }
@@ -135,6 +156,11 @@ impl UltimateGps {
 
         let data = GpsData::default();
 
+        let epoch_date = time::date!(2020 - 06 - 30);
+        let epoch_time = time::time!(0:00);
+
+        let epoch = time::PrimitiveDateTime::new(epoch_date, epoch_time);
+
         let gps = Self {
             queue_rx,
             serial_tx,
@@ -142,6 +168,7 @@ impl UltimateGps {
             sentence_buffer_len,
             sentence_buffer,
             data,
+            epoch,
         };
 
         let updater = UltimateGpsQueue {
@@ -179,7 +206,7 @@ impl UltimateGps {
         let updated = if let Ok(sentence) =
             parse_nmea_sentence(&self.sentence_buffer[0..self.sentence_buffer_len])
         {
-            self.data.update(sentence)
+            self.data.update(self.epoch, sentence)
         } else {
             false
         };
