@@ -26,6 +26,7 @@ use stm32f3_discovery::hal;
 use stm32f3_discovery::leds::Leds as CompassLeds;
 
 /// TODO: what should we name this
+// TODO: less specific type than AF5
 pub type MySpi1 = hal::spi::Spi<
     hal::stm32::SPI1,
     (
@@ -68,13 +69,13 @@ type SdController<SpiWrapper> = embedded_sdmmc::Controller<
 >;
 
 /// TODO: what should we name this
-type SpiRadio<SpiWrapper> = network::Radio<
+type MyNetwork<SpiWrapper> = network::Network<
     SpiWrapper,
     hal::spi::Error,
-    hal::gpio::gpioc::PC1<hal::gpio::Output<hal::gpio::PushPull>>,
-    hal::gpio::gpioc::PC2<hal::gpio::Input<hal::gpio::PullDown>>,
-    hal::gpio::gpioc::PC3<hal::gpio::Input<hal::gpio::PullDown>>,
-    hal::gpio::gpioc::PC4<hal::gpio::Output<hal::gpio::PushPull>>,
+    hal::gpio::PXx<hal::gpio::Output<hal::gpio::PushPull>>,
+    hal::gpio::PXx<hal::gpio::Input<hal::gpio::PullDown>>,
+    hal::gpio::PXx<hal::gpio::Input<hal::gpio::PullDown>>,
+    hal::gpio::PXx<hal::gpio::Output<hal::gpio::OpenDrain>>,
     (),
     asm_delay::AsmDelay,
 >;
@@ -83,19 +84,22 @@ type SpiRadio<SpiWrapper> = network::Radio<
 /// notice that the lights are NOT included here. they use SPI, but a different bus!
 pub struct SharedSPIResources {
     // TODO: gyroscope on SPI
-    radio: SpiRadio<SharedBus<MySpi1>>,
+    network: MyNetwork<SharedBus<MySpi1>>,
     sd_card: SdController<SharedBus<MySpi1>>,
 }
 
 // static globals
-// static MAX_PEERS: u8 = 5;
+// TODO: what type?
+const MAX_PEERS: usize = 5;
+const NUM_TIME_SEGMENTS: usize = MAX_PEERS * MAX_PEERS;
+const TIME_SEGMENT_S: usize = 2;
 // /// the number of ms to offset our network timer. this is time to send+receive+process+draw
 // static NETWORK_OFFSET: u16 = 125 + 225;
-static DEFAULT_BRIGHTNESS: u8 = 128;
-static FRAMES_PER_SECOND: u8 = 30;
+const DEFAULT_BRIGHTNESS: u8 = 128;
+const FRAMES_PER_SECOND: u8 = 30;
 
 // TODO: use rtic resources instead
-static mut ELAPSED_MS: usize = 0;
+static mut ELAPSED_MS: u32 = 0;
 // TODO: what size queue?
 
 #[app(device = stm32f3_discovery::hal::stm32, peripherals = true)]
@@ -107,7 +111,7 @@ const APP: () = {
         compass_lights: CompassLeds,
         lights: MyLights,
         gps: location::UltimateGps,
-        gps_updater: location::UltimateGpsUpdater,
+        gps_queue: location::UltimateGpsQueue,
         shared_spi_resources: SharedSPIResources,
         // timer4: hal::timer::Timer<hal::stm32::TIM4>,
         timer7: hal::timer::Timer<hal::stm32::TIM7>,
@@ -122,7 +126,7 @@ const APP: () = {
     //     }
     // }
 
-    #[task(binds = TIM7, resources = [timer7, gps_updater])]
+    #[task(binds = TIM7, resources = [timer7, gps_queue])]
     fn tim7(c: tim7::Context) {
         if c.resources.timer7.wait().is_ok() {
             // TODO: use an atomic for this? or use rtic resources?
@@ -133,7 +137,7 @@ const APP: () = {
 
             // https://learn.adafruit.com/adafruit-ultimate-gps/parsed-data-output
             // "if you can, get this to run once a millisecond in an interrupt"
-            c.resources.gps_updater.read();
+            c.resources.gps_queue.read();
         }
     }
 
@@ -179,7 +183,7 @@ const APP: () = {
         // );
         // timer4.listen(hal::timer::Event::Update);
 
-        // TODO: how many hz to 1 millisecond? i think we have a 72mhz processor, so 72000
+        // TODO: how many hz to 1 millisecond? i think we have a 72mhz processor, so 72_000
         // TODO: calculate this in case we run at a different speed
         let mut timer7 = hal::timer::Timer::tim7(
             device.TIM7,
@@ -261,24 +265,45 @@ const APP: () = {
         // TODO: configure the pins in Radio's new function?
         let rfm95_cs = gpioc
             .pc1
-            .into_push_pull_output(&mut gpioc.moder, &mut gpioc.otyper);
+            .into_push_pull_output(&mut gpioc.moder, &mut gpioc.otyper)
+            .downgrade()
+            .downgrade();
+        // the radio's "DIO0" pin, also known as the IRQ pin
         let rfm95_busy = gpioc
             .pc2
-            .into_pull_down_input(&mut gpioc.moder, &mut gpioc.pupdr);
+            .into_pull_down_input(&mut gpioc.moder, &mut gpioc.pupdr)
+            .downgrade()
+            .downgrade();
+        // READY is DIO1
         let rfm95_ready = gpioc
             .pc3
-            .into_pull_down_input(&mut gpioc.moder, &mut gpioc.pupdr);
+            .into_pull_down_input(&mut gpioc.moder, &mut gpioc.pupdr)
+            .downgrade()
+            .downgrade();
         let rfm95_reset = gpioc
             .pc4
-            .into_push_pull_output(&mut gpioc.moder, &mut gpioc.otyper);
+            .into_open_drain_output(&mut gpioc.moder, &mut gpioc.otyper)
+            .downgrade()
+            .downgrade();
 
-        let my_radio: SpiRadio<_> = network::Radio::new(
+        // TODO: get this from the SD card
+        // TODO: 32
+        let network_hash = [0u8; 16];
+        let my_peer_id = 0;
+        let my_hue = 0;
+        let my_saturation = 0;
+
+        let my_network: MyNetwork<_> = network::Network::new(
             radio_spi,
             rfm95_cs,
             rfm95_busy,
             rfm95_ready,
             rfm95_reset,
             delay,
+            network_hash,
+            my_peer_id,
+            my_hue,
+            my_saturation,
         );
 
         // TODO: setup orientation sensor
@@ -304,7 +329,7 @@ const APP: () = {
             .downgrade()
             .downgrade();
 
-        let (my_gps, my_gps_updater) = location::UltimateGps::new(gps_uart, gps_enable_pin);
+        let (my_gps, my_gps_queue) = location::UltimateGps::new(gps_uart, gps_enable_pin);
 
         // create lights
         // TODO: is spi a good interface for this? whats the best way to run ws2812s?
@@ -331,7 +356,7 @@ const APP: () = {
         let battery = battery::Battery::new(gpioc.pc8, &mut gpioc.moder, &mut gpioc.pupdr, 60_000);
 
         let shared_spi_resources = SharedSPIResources {
-            radio: my_radio,
+            network: my_network,
             sd_card: my_sd_card,
         };
 
@@ -340,7 +365,7 @@ const APP: () = {
             compass: my_compass,
             compass_lights: my_compass_lights,
             gps: my_gps,
-            gps_updater: my_gps_updater,
+            gps_queue: my_gps_queue,
             lights: my_lights,
             shared_spi_resources,
             timer7,
@@ -365,6 +390,11 @@ const APP: () = {
         let my_lights = c.resources.lights;
         let shared_spi_resources = c.resources.shared_spi_resources;
 
+        my_lights.draw_test_pattern();
+
+        // TODO: read this from the SD
+        let my_peer_id: usize = 1;
+
         // configure gps
         // get the version (PMTK_Q_RELEASE)
         my_gps.send_command(b"$PMTK605*31");
@@ -378,7 +408,12 @@ const APP: () = {
         // PMTK_SET_NMEA_UPDATE_10HZ - 100
         my_gps.send_command(b"PMTK220,1000");
 
-        my_lights.draw_test_pattern();
+        hprintln!(
+            "Radio silicon version: 0x{:X}",
+            shared_spi_resources.network.silicon_version()
+        )
+        .unwrap();
+
         // delay for 1 second (TODO: use a helper for calculating 1 second in cycles)
         delay(72_000_000);
 
@@ -410,8 +445,19 @@ const APP: () = {
 
             my_lights.draw();
 
-            if my_gps.update() {
-                hprintln!("GPS updated").unwrap();
+            if my_gps.receive() {
+                hprintln!("GPS received a sentence").unwrap();
+
+                let gps_data = my_gps.data();
+
+                // TODO: get the current time in seconds
+                let last_updated_at: u32 = 0;
+
+                if let Some(position) = &gps_data.position {
+                    shared_spi_resources
+                        .network
+                        .save_my_location(last_updated_at, position);
+                }
             }
 
             my_lights.draw();
@@ -419,19 +465,37 @@ const APP: () = {
             if my_gps.has_fix() {
                 hprintln!("GPS has fix").unwrap();
 
-                // TODO: get the time from the GPS
+                let gps_data = my_gps.data();
 
-                // TODO: get the time_segment_id
+                if let Some(time) = gps_data.time {
+                    // TODO: should we use the time from an rtc instead? if we have 1 hz updates, so i think the gps time could drift
+                    // TODO: is the number of seconds available directly? castnig and multiplying and adding seems slow. can we get any more accurate of a time?
+                    // TODO: does converting from a f32 (thats >= 0) to usize work like I want?
+                    let seconds_today: usize = todo!();
 
-                // TODO: get the broadcasting_peer_id and broadcasted_peer_id
+                    // TODO: the seconds being a float is really annoying. i don't want to bring floats into this
 
-                // TODO: radio transmit or receive depending on the time_segment_id
-                todo!();
+                    let time_segment_id = (seconds_today / TIME_SEGMENT_S) % NUM_TIME_SEGMENTS;
+
+                    let broadcasting_peer_id = time_segment_id / MAX_PEERS;
+                    let broadcasted_peer_id = time_segment_id % MAX_PEERS;
+
+                    // radio transmit or receive depending on the time_segment_id
+                    // TODO: spend 50% the time with the radio asleep?
+                    if broadcasting_peer_id == my_peer_id {
+                        shared_spi_resources.network.transmit(broadcasted_peer_id);
+                    } else {
+                        shared_spi_resources.network.try_receive();
+                    }
+                } else {
+                    hprintln!("GPS does not have the time").unwrap();
+                    // TODO: should we bother with the radio? maybe put it to sleep?
+                    shared_spi_resources.network.sleep();
+                }
             } else {
                 hprintln!("GPS does not have a fix").unwrap();
                 // wait on the radio receiving
                 // TODO: although maybe that should be in an interrupt?
-                // TODO: spend 50% the time with the radio asleep
             }
 
             // draw again because the using radio can take a while

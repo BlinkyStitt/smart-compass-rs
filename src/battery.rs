@@ -24,7 +24,7 @@ impl Battery {
         pin: gpioc::PC8<PE8Mode>,
         moder: &mut gpioc::MODER,
         pupdr: &mut gpioc::PUPDR,
-        check_ms: usize,
+        check_ms: u32,
     ) -> Self {
         let pin = pin.into_pull_up_input(moder, pupdr).downgrade();
 

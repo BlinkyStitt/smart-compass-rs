@@ -25,7 +25,7 @@ impl<SpiWrapper: _embedded_hal_spi_FullDuplex<u8>> Lights<SpiWrapper> {
 
         let light_data: [RGB8; 256] = [RGB8::default(); 256];
 
-        let framerate_ms = 1_000 / (frames_per_second as usize);
+        let framerate_ms = 1_000 / (frames_per_second as u32);
 
         let framerate = Periodic::new(framerate_ms);
 

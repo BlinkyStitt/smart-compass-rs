@@ -35,12 +35,12 @@ pub struct UltimateGps {
     data: GpsData,
 }
 
-pub struct UltimateGpsUpdater {
+pub struct UltimateGpsQueue {
     serial_rx: hal::serial::Rx<hal::stm32::USART2>,
     queue_tx: Producer<'static, u8, U256>,
 }
 
-impl UltimateGpsUpdater {
+impl UltimateGpsQueue {
     /// Read a byte into the queue
     /// this gets called inside an interrupt, so make this fast!
     pub fn read(&mut self) {
@@ -70,6 +70,7 @@ pub struct GpsData {
     pub heading: Option<f32>,
     pub time: Option<GpsTime>,
     pub sats_in_view: Option<u8>,
+    // pub date_time: Option<time::PrimitiveDateTime>,
 }
 
 impl GpsData {
@@ -77,21 +78,35 @@ impl GpsData {
         // TODO: support other sentences? GSA for 2d vs 3d fix?
         match data {
             SentenceData::GGA(data) => {
-                self.time = data.time;
+                // self.time =
+                //     time::Time::try_from_hms(data.time.hour, date.time.minute, data.time.second);
                 self.position = Some(data.position);
                 self.quality = data.quality;
                 self.sats_in_view = data.sats_in_view;
             }
             SentenceData::RMC(data) => {
-                self.time = data.time;
+                // self.time =
+                //     time::Time::try_from_hms(data.time.hour, date.time.minute, data.time.second);
                 self.position = Some(data.position);
                 self.knots = data.speed;
                 self.heading = data.heading;
-                self.date = data.date;
+                // self.date =
+                //     time::Date::try_from_ymd(data.date.year, data.date.month, data.date.day);
                 self.magnetic_variation = data.magnetic_variation;
                 self.magnetic_direction = data.magnetic_direction;
             }
             _ => return false,
+        }
+
+        // TODO: i'm sure this could be more efficient
+        match (&self.date, &self.time) {
+            (Some(gps_date), Some(gps_time)) => {
+                // let date_time = time::PrimitiveDateTime::new(gps_date.clone(), gps_time.clone());
+
+                // self.date_time = Some(date_time);
+                todo!();
+            }
+            _ => {}
         }
 
         true
@@ -102,7 +117,9 @@ impl UltimateGps {
     pub fn new(
         uart: GPSSerial,
         enable_pin: hal::gpio::PXx<hal::gpio::Output<hal::gpio::OpenDrain>>,
-    ) -> (Self, UltimateGpsUpdater) {
+        // TODO: `pps_pin` on an interrupt
+        // pps_pin:
+    ) -> (Self, UltimateGpsQueue) {
         let (serial_tx, serial_rx) = uart.split();
 
         // `heapless::i` is an "unfortunate implementation detail required to construct heapless types in const context"
@@ -127,7 +144,7 @@ impl UltimateGps {
             data,
         };
 
-        let updater = UltimateGpsUpdater {
+        let updater = UltimateGpsQueue {
             serial_rx,
             queue_tx,
         };
@@ -137,7 +154,7 @@ impl UltimateGps {
 
     /// Check for updated data from the GPS module and process it accordingly.
     /// Returns True if new data was processed, and False if nothing new was received.
-    pub fn update(&mut self) -> bool {
+    pub fn receive(&mut self) -> bool {
         // pull items off the queue and into our sentence buffer
         // stop looping when the queue is empty or when '\n' is found
         loop {

@@ -14,24 +14,19 @@ cortex-m-rtic = "0.5"
 cortex-m-semihosting = "0.3.3"
 embedded-sdmmc = "0.3"
 heapless = "0.5"
-numtoa = "*"
+numtoa = "0.2"
 panic-semihosting = "0.5"
 radio-sx127x = { path = "../rust-radio-sx127x", default-features = false }
+serde_cbor = { version = "0.11", default-features = false }
+serde = { version = "1.0", default-features = false, features = ["derive"] }
 shared-bus-rtic = "0.2.2"
 smart-leds = "0.3"
+# TODO: can't find crate for `std` inside time-macros 0.1.0
+# time = { version = "0.2", default-features = false }
 yanp = "0.1.1"
 # make sure ws2812 crate uses the same smart-leds-trait crate as smart-leds
 # TODO: is this crate compatible? do we need one for a stm32f3?
-ws2812-spi = "*"
-
-# TODO: these require std
-# adafruit_gps = "0.3"
-# make sure adafruit-gps crate uses the same serialport crate as this
-# serialport = { version = "3.3.0", default-features = false }
-
-# TODO: use these from radio-sx127x
-embedded-hal = { version = "0.2.4", features = ["unproven"] }
-embedded-spi = { version = "0.6.2", default-features = false }
+ws2812-spi = "0.3"
 
 [dependencies.stm32f3-discovery]
 path = "../stm32f3-discovery"

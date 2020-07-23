@@ -4,12 +4,12 @@
 /// TODO: is usize a good type? maybe usize?
 /// TODO: maybe a custom type so that we can have hz, or ms, or seconds, or minutes, etc.
 pub struct Periodic {
-    previous_trigger: usize,
-    period_ms: usize,
+    previous_trigger: u32,
+    period_ms: u32,
 }
 
 impl Periodic {
-    pub fn new(period_ms: usize) -> Self {
+    pub fn new(period_ms: u32) -> Self {
         Self {
             previous_trigger: 0,
             period_ms,
