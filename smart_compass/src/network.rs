@@ -3,7 +3,7 @@ use radio_sx127x::prelude::*;
 use crate::{ELAPSED_MS, MAX_PEERS};
 // use blake2::{VarBlake2s};
 // use blake2::crypto_mac::{Mac, NewMac};
-use cortex_m_semihosting::hprintln;
+// use cortex_m_semihosting::hprintln;
 use serde::{Deserialize, Serialize};
 use serde_cbor::ser::SliceWrite;
 use serde_cbor::Serializer;
@@ -213,7 +213,7 @@ where
                 // this packet is for us
                 self.save_message(message);
             } else {
-                hprintln!("Failed parsing the packet!").unwrap();
+                // hprintln!("Failed parsing the packet!").unwrap();
             }
 
             todo!();

@@ -15,9 +15,13 @@ use asm_delay::AsmDelay;
 use hal::clock::GenericClockController;
 use rtic::app;
 use shared_bus_rtic::SharedBus;
-use smart_compass_v1::{
-    battery, compass, config, lights, location, network, periodic, storage, ELAPSED_MS,
+use smart_compass::{
+    accelerometer, battery, lights, location, network, periodic, storage, ELAPSED_MS,
 };
+
+// TODO: i'm not sure what I did to require an allocator
+#[global_allocator]
+static ALLOCATOR: CortexMHeap = CortexMHeap::empty();
 
 pub type SPIMaster = hal::sercom::SPIMaster4<
     hal::sercom::Sercom4Pad0<hal::gpio::Pa12<hal::gpio::PfD>>,
@@ -33,8 +37,8 @@ pub type GPSSerial = hal::sercom::UART0<
 >;
 
 // TODO: less strict types here
-type SpiRadio<SpiWrapper> = network::Radio<
-    SpiWrapper,
+type SpiRadio<Spi> = network::Network<
+    Spi,
     hal::sercom::Error,
     hal::gpio::Pa6<hal::gpio::Output<hal::gpio::PushPull>>,
     hal::gpio::Pb8<hal::gpio::Input<hal::gpio::PullDown>>,
@@ -45,8 +49,8 @@ type SpiRadio<SpiWrapper> = network::Radio<
 >;
 pub struct SharedSPIResources {
     radio: SpiRadio<SharedBus<SPIMaster>>,
-    sd_controller: embedded_sdmmc::Controller<
-        embedded_sdmmc::SdMmcSpi<
+    sd_controller: storage::embedded_sdmmc::Controller<
+        storage::embedded_sdmmc::SdMmcSpi<
             SharedBus<SPIMaster>,
             hal::gpio::Pa18<hal::gpio::Output<hal::gpio::PushPull>>,
         >,
@@ -61,15 +65,12 @@ pub struct SharedSPIResources {
 static DEFAULT_BRIGHTNESS: u8 = 128;
 static FRAMES_PER_SECOND: u8 = 30;
 
-// TODO: use rtic resources instead
-static mut ELAPSED_MS: usize = 0;
-
 #[app(device = hal::pac, peripherals = true)]
 const APP: () = {
     struct Resources {
         every_300_seconds: periodic::Periodic,
         lights: lights::Lights<hal::gpio::Pa15<hal::gpio::Output<hal::gpio::PushPull>>>,
-        gps: location::Gps,
+        gps: location::UltimateGps,
         shared_spi_resources: SharedSPIResources,
         red_led: hal::gpio::Pa17<hal::gpio::Output<hal::gpio::OpenDrain>>,
         timer3: hal::timer::TimerCounter3,
@@ -101,6 +102,11 @@ const APP: () = {
     /// setup the hardware
     #[init]
     fn init(c: init::Context) -> init::LateResources {
+        // Initialize the allocator BEFORE you use it
+        let start = cortex_m_rt::heap_start() as usize;
+        let size = 1024; // in bytes
+        unsafe { ALLOCATOR.init(start, size) }
+
         let mut device = c.device;
 
         let mut clocks = GenericClockController::with_internal_32kosc(
@@ -154,6 +160,8 @@ const APP: () = {
         // wire this to io1
         let rfm95_ready = pins.a2.into_pull_down_input(&mut pins.port);
         let floating_pin = pins.a3.into_floating_input(&mut pins.port);
+        // TODO: pick a real pin
+        let gps_enable_pin = pins.a4;
 
         // TODO: what speed? m4 maxes at 24mhz. is m0 the same? what
         let my_spi = hal::spi_master(
@@ -173,17 +181,17 @@ const APP: () = {
         let sd_spi = shared_spi_manager.acquire();
 
         // TODO: why isn't this working? why does the spi not implement fullduplex?
-        let sd_spi = embedded_sdmmc::SdMmcSpi::new(sd_spi, sdcard_cs);
+        let sd_spi = storage::embedded_sdmmc::SdMmcSpi::new(sd_spi, sdcard_cs);
 
         // TODO: a real time source from tthe rtc?
         let time_source = storage::DummyTimeSource;
 
-        let sd_controller = embedded_sdmmc::Controller::new(sd_spi, time_source);
+        let sd_controller = storage::embedded_sdmmc::Controller::new(sd_spi, time_source);
 
         // setup the radio
         let radio_spi = shared_spi_manager.acquire();
 
-        let my_radio = network::Radio::new(
+        let my_radio = network::Network::new(
             radio_spi,
             rfm95_cs,
             rfm95_busy,
@@ -197,7 +205,7 @@ const APP: () = {
         // setup serial for communicating with the gps module.
         // TOOD: SERCOM0 or SERCOM1?
         // TODO: what speed?
-        let my_uart = hal::uart(
+        let gps_uart = hal::uart(
             &mut clocks,
             9600.hz(),
             device.SERCOM0,
@@ -207,7 +215,9 @@ const APP: () = {
             &mut pins.port,
         );
 
-        let my_gps = location::Gps::new(my_uart);
+        let (gps_tx, gps_rx) = gps_uart.split();
+
+        let my_gps = location::UltimateGps::new(gps_tx, gps_rx, gps_enable_pin);
 
         // create lights
         let my_lights = lights::Lights::new(led_data, DEFAULT_BRIGHTNESS, FRAMES_PER_SECOND);

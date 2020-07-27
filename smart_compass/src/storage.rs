@@ -1,3 +1,5 @@
+pub use embedded_sdmmc;
+
 /// TODO: use the RTC?
 pub struct DummyTimeSource;
 

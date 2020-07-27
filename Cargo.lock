@@ -584,34 +584,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "smart-compass-v1"
-version = "0.1.0"
-dependencies = [
- "accelerometer 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "alloc-cortex-m 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "asm-delay 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "blake2 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "cortex-m-rtic 0.5.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "cortex-m-semihosting 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)",
- "embedded-hal 0.2.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "embedded-sdmmc 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "feather_m0 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "heapless 0.5.5 (registry+https://github.com/rust-lang/crates.io-index)",
- "numtoa 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "panic-halt 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "panic-semihosting 0.5.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "radio-sx127x 0.10.1",
- "serde 1.0.114 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde_cbor 0.11.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "shared-bus-rtic 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "smart-leds 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "stm32f3-discovery 0.4.0",
- "time 0.2.16 (git+https://github.com/time-rs/time.git?rev=c49cca20a6ebd72ba403bae331555b7e4a42cb75)",
- "ws2812-spi 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "yanp 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
 name = "smart-leds"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -625,6 +597,59 @@ version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "rgb 0.8.20 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "smart_compass"
+version = "0.1.0"
+dependencies = [
+ "accelerometer 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "asm-delay 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "blake2 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "embedded-hal 0.2.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "embedded-sdmmc 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "heapless 0.5.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "numtoa 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "radio-sx127x 0.10.1",
+ "serde 1.0.114 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_cbor 0.11.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "shared-bus-rtic 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "smart-leds 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "time 0.2.16 (git+https://github.com/time-rs/time.git?rev=c49cca20a6ebd72ba403bae331555b7e4a42cb75)",
+ "ws2812-spi 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "yanp 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "smart_compass_feather_m0"
+version = "0.1.0"
+dependencies = [
+ "alloc-cortex-m 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "asm-delay 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cortex-m-rt 0.6.12 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cortex-m-rtic 0.5.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cortex-m-semihosting 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "feather_m0 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "heapless 0.5.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "panic-halt 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "shared-bus-rtic 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "smart_compass 0.1.0",
+]
+
+[[package]]
+name = "smart_compass_stm32f3_discovery"
+version = "0.1.0"
+dependencies = [
+ "alloc-cortex-m 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "asm-delay 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cortex-m-rtic 0.5.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cortex-m-semihosting 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "feather_m0 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "heapless 0.5.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "panic-semihosting 0.5.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "shared-bus-rtic 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "smart_compass 0.1.0",
+ "stm32f3-discovery 0.4.0",
 ]
 
 [[package]]

@@ -1,6 +1,8 @@
 mod networked;
 mod patterns;
 
+pub use ws2812_spi;
+
 use crate::periodic::Periodic;
 use embedded_hal::spi;
 use smart_leds::{brightness, gamma, SmartLedsWrite, RGB8};

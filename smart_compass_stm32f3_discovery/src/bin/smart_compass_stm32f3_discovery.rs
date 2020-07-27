@@ -13,7 +13,7 @@ use core::alloc::Layout;
 use cortex_m_semihosting::hprintln;
 use rtic::app;
 use shared_bus_rtic::SharedBus;
-use smart_compass_v1::{battery, lights, location, network, periodic, storage, ELAPSED_MS};
+use smart_compass::{battery, lights, location, network, storage, ELAPSED_MS, MAX_PEERS};
 use stm32f3_discovery::accelerometer::{Orientation, RawAccelerometer};
 use stm32f3_discovery::compass::Compass;
 use stm32f3_discovery::cortex_m::asm::delay;
@@ -59,18 +59,19 @@ type GPSSerial = hal::serial::Serial<
 >;
 
 /// TODO: what should we name this
-type SdController<SpiWrapper> = embedded_sdmmc::Controller<
-    embedded_sdmmc::SdMmcSpi<
-        SpiWrapper,
+type SdController<Spi> = storage::embedded_sdmmc::Controller<
+    storage::embedded_sdmmc::SdMmcSpi<
+        Spi,
         hal::gpio::gpioc::PC0<hal::gpio::Output<hal::gpio::PushPull>>,
     >,
     storage::DummyTimeSource,
 >;
 
 /// TODO: what should we name this
-type MyNetwork<SpiWrapper> = network::Network<
-    SpiWrapper,
+type MyNetwork<Spi> = network::Network<
+    Spi,
     hal::spi::Error,
+    // TODO: put specific pins here again
     hal::gpio::PXx<hal::gpio::Output<hal::gpio::PushPull>>,
     hal::gpio::PXx<hal::gpio::Input<hal::gpio::PullDown>>,
     hal::gpio::PXx<hal::gpio::Input<hal::gpio::PullDown>>,
@@ -99,13 +100,13 @@ const FRAMES_PER_SECOND: u8 = 30;
 #[app(device = stm32f3_discovery::hal::stm32, peripherals = true)]
 const APP: () = {
     struct Resources {
-        battery: battery::Battery,
+        battery: battery::Battery<()>,
         // TODO: put compass in a shared_resources helper if theres more than one i2c
         compass: Compass,
         compass_lights: CompassLeds,
         lights: MyLights,
-        gps: location::UltimateGps,
-        gps_queue: location::UltimateGpsQueue,
+        gps: location::UltimateGps<stm32f3_discovery::hal::serial::Tx<u8>, hal::gpio::PXx<hal::gpio::OpenDrain>>,
+        gps_queue: location::UltimateGpsQueue<stm32f3_discovery::hal::serial::Rx<u8>>,
         shared_spi_resources: SharedSPIResources,
         // timer4: hal::timer::Timer<hal::stm32::TIM4>,
         timer7: hal::timer::Timer<hal::stm32::TIM7>,
@@ -252,8 +253,8 @@ const APP: () = {
 
         let time_source = storage::DummyTimeSource;
 
-        let my_sd_card: SdController<_> = embedded_sdmmc::Controller::new(
-            embedded_sdmmc::SdMmcSpi::new(sd_spi, sdcard_cs),
+        let my_sd_card: SdController<_> = storage::embedded_sdmmc::Controller::new(
+            storage::embedded_sdmmc::SdMmcSpi::new(sd_spi, sdcard_cs),
             time_source,
         );
 
@@ -328,7 +329,7 @@ const APP: () = {
             .downgrade()
             .downgrade();
 
-        let (gps_tx, gps_rx) = gps_uart.split();
+        let (gps_tx , gps_rx) = gps_uart.split();
 
         let (my_gps, my_gps_queue) = location::UltimateGps::new(gps_tx, gps_rx, gps_enable_pin);
 
@@ -343,7 +344,7 @@ const APP: () = {
         let lights_spi: MySpi2 = hal::spi::Spi::spi2(
             device.SPI2,
             (sck2, miso2, mosi2),
-            ws2812_spi::MODE,
+            lights::ws2812_spi::MODE,
             3.mhz(),
             clocks,
             &mut reset_and_clock_control.apb1,

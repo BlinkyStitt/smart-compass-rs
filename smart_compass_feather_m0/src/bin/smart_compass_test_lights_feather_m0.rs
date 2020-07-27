@@ -10,7 +10,7 @@ pub extern crate feather_m0 as hal;
 use hal::prelude::*;
 
 use rtic::app;
-use smart_compass_v1::{lights, ELAPSED_MS};
+use smart_compass::{lights, ELAPSED_MS};
 use hal::clock::GenericClockController;
 use alloc_cortex_m::CortexMHeap;
 use core::alloc::Layout;
@@ -55,6 +55,11 @@ const APP: () = {
     /// setup the hardware
     #[init]
     fn init(c: init::Context) -> init::LateResources {
+        // Initialize the allocator BEFORE you use it
+        let start = cortex_m_rt::heap_start() as usize;
+        let size = 1024; // in bytes
+        unsafe { ALLOCATOR.init(start, size) }
+
         let mut device = c.device;
 
         let mut clocks = GenericClockController::with_internal_32kosc(

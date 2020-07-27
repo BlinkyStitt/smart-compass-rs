@@ -1,0 +1,29 @@
+[package]
+name = "smart_compass"
+version = "0.1.0"
+authors = ["Bryan Stitt <bryan@stitthappens.com>"]
+edition = "2018"
+readme = "README.md"
+
+[dependencies]
+# make sure the board crates (stm32f3, feather_m0, etc.) match this version of accelerometer!
+accelerometer = "0.11"
+# make sure the board crates (stm32f3, feather_m0, etc.) match this version of embedded-hal!
+embedded-hal = "*"
+
+asm-delay = "0.9"
+blake2 = { version = "0.9", default-features = false }
+embedded-sdmmc = "0.3"
+heapless = "0.5"
+numtoa = "0.2"
+radio-sx127x = { path = "../../rust-radio-sx127x", default-features = false }
+serde_cbor = { version = "0.11", default-features = false }
+serde = { version = "1.0", default-features = false, features = ["derive"] }
+shared-bus-rtic = "0.2.2"
+smart-leds = "0.3"
+time = { git = "https://github.com/time-rs/time.git", rev = "c49cca20a6ebd72ba403bae331555b7e4a42cb75", default-features = false }
+yanp = "0.1.1"
+
+# make sure ws2812 crate uses the same smart-leds-trait crate as smart-leds
+# TODO: import smart-leds from ws2812-spi?
+ws2812-spi = "0.3"

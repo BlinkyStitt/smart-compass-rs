@@ -9,7 +9,9 @@ pub mod network;
 pub mod periodic;
 pub mod storage;
 
-const MAX_PEERS: usize = 5;
+pub use accelerometer;
+
+pub const MAX_PEERS: usize = 5;
 
 // TODO: use rtic resources instead
 pub static mut ELAPSED_MS: u32 = 0;

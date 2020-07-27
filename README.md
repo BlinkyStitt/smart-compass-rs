@@ -19,15 +19,9 @@ rustup target add thumbv7em-none-eabihf
 cargo install cargo-hf2
 ```
 
-## Development
+## Todo
 
-```sh
-cargo check --bin test-lights-feather_m0 --features feather_m0,panic-halt
-
-cargo check --bin smart-compass-stm32f3_discovery --features stm32f3-discovery,panic-semihosting
-
-cargo check --bin test-lights-feather_m0 --features feather_m0,panic-halt
-```
+- add memory.x and openocd files for feather_m0
 
 ## Reading
 

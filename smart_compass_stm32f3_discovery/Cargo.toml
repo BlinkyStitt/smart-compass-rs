@@ -1,0 +1,25 @@
+[package]
+name = "smart_compass_stm32f3_discovery"
+version = "0.1.0"
+authors = ["Bryan Stitt <bryan@stitthappens.com>"]
+edition = "2018"
+
+[dependencies]
+alloc-cortex-m = "0.4"
+asm-delay = "0.9"
+cortex-m-rtic = "0.5"
+cortex-m-semihosting = "0.3.3"
+feather_m0 = "0.6"
+heapless = "0.5"
+panic-semihosting = { version = "0.5" }
+shared-bus-rtic = "0.2.2"
+smart_compass = { path = "../smart_compass" }
+
+[dependencies.stm32f3-discovery]
+path = "../../stm32f3-discovery"
+
+# this lets you use `cargo fix`!
+[[bin]]
+name = "smart_compass_stm32f3_discovery"
+test = false
+bench = false

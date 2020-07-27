@@ -1,0 +1,25 @@
+[package]
+name = "smart_compass_feather_m0"
+version = "0.1.0"
+authors = ["Bryan Stitt <bryan@stitthappens.com>"]
+edition = "2018"
+
+[dependencies]
+alloc-cortex-m = "0.4"
+asm-delay = "0.9"
+cortex-m-rtic = "0.5"
+cortex-m-semihosting = "0.3.3"
+feather_m0 = "0.6"
+heapless = "0.5"
+panic-halt = { version = "0.2" }
+shared-bus-rtic = "0.2.2"
+smart_compass = { path = "../smart_compass" }
+
+# TODO: make sure this matches the feather_m0 crate!
+cortex-m-rt = "0.6"
+
+# this lets you use `cargo fix`!
+[[bin]]
+name = "smart_compass_feather_m0"
+test = false
+bench = false
