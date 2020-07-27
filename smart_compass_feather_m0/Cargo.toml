@@ -7,7 +7,7 @@ edition = "2018"
 [features]
 default = ["usb"]
 
-usb = ["feather_m0/usb"]
+usb = ["feather_m0/usb", "usb-device", "usbd-serial"]
 
 [dependencies]
 alloc-cortex-m = "0.4"
@@ -20,8 +20,10 @@ panic-halt = { version = "0.2" }
 shared-bus-rtic = { version = "0.2.2", features = ["thumbv6"] }
 smart_compass = { path = "../smart_compass" }
 
-# TODO: make sure this matches the feather_m0 crate! (or have them export it)
+# TODO: make sure these match the feather_m0 crate! (or have them export it)
 cortex-m-rt = "0.6"
+usb-device = { version = "*", optional = true }
+usbd-serial = { version = "*", optional = true }
 
 # this lets you use `cargo fix`!
 [[bin]]

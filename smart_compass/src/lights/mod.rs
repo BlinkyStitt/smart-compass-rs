@@ -143,7 +143,7 @@ impl<Spi: spi::FullDuplex<u8>> Lights<Spi> {
         }
 
         // get the data
-        let data = self.light_data.clone();
+        let data = &self.light_data;
 
         // correct colors
         let data = gamma(data.iter().cloned());

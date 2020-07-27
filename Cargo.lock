@@ -638,6 +638,8 @@ dependencies = [
  "panic-halt 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "shared-bus-rtic 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "smart_compass 0.1.0",
+ "usb-device 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "usbd-serial 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]

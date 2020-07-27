@@ -8,6 +8,7 @@ use panic_halt as _;
 pub extern crate feather_m0 as hal;
 
 use hal::prelude::*;
+use usb_device::prelude::*;
 
 use alloc_cortex_m::CortexMHeap;
 use asm_delay::AsmDelay;
@@ -15,6 +16,7 @@ use core::alloc::Layout;
 use hal::clock::GenericClockController;
 use rtic::app;
 use smart_compass::{lights, periodic, ELAPSED_MS};
+use usbd_serial::{SerialPort, USB_CLASS_CDC};
 
 // TODO: i'm not sure what I did to require an allocator
 #[global_allocator]
@@ -32,11 +34,16 @@ pub type SPIMaster = hal::sercom::SPIMaster4<
 static DEFAULT_BRIGHTNESS: u8 = 128;
 static FRAMES_PER_SECOND: u8 = 30;
 
+// TODO: use rtic resources once i figure out how to handle the static lifetime
+static mut USB_ALLOCATOR: Option<usb_device::bus::UsbBusAllocator<hal::UsbBus>> = None;
+static mut USB_DEVICE: Option<usb_device::device::UsbDevice<hal::UsbBus>> = None;
+static mut USB_SERIAL: Option<usbd_serial::SerialPort<hal::UsbBus>> = None;
+
 #[app(device = hal::pac, peripherals = true)]
 const APP: () = {
     struct Resources {
         lights: lights::Lights<SPIMaster>,
-        every_500_millis: periodic::Periodic,
+        every_200_millis: periodic::Periodic,
         red_led: hal::gpio::Pa17<hal::gpio::Output<hal::gpio::OpenDrain>>,
         timer4: hal::timer::TimerCounter4,
     }
@@ -46,13 +53,41 @@ const APP: () = {
     /// because it checks and resets the counter ready for the next
     /// period.
     /// TODO: is this how arduino's millis function works?
+    /// TODO: i don't think this is working. get usb echo working, then change to use it for logging
     #[task(binds = TC4, resources = [timer4], priority = 3)]
     fn tc4(c: tc4::Context) {
         if c.resources.timer4.wait().is_ok() {
             unsafe {
+                // TODO: use an rtic resource (atomicUsize?)
                 ELAPSED_MS += 1;
             }
         }
+    }
+
+    #[task(binds = USB, priority = 1)]
+    fn usb(_c: usb::Context) {
+        unsafe {
+            USB_DEVICE.as_mut().map(|device| {
+                USB_SERIAL.as_mut().map(|serial| {
+                    device.poll(&mut [serial]);
+                    let mut buf = [0u8; 64];
+    
+                    if let Ok(count) = serial.read(&mut buf) {
+                        // TODO: instead of just echoing, prefix with ELAPSED_MS
+                        serial.write(b"X - ").ok().unwrap();
+
+                        for (i, c) in buf.iter().enumerate() {
+                            if i >= count {
+                                break;
+                            }
+                            serial.write(&[*c]).ok().unwrap();
+                        }
+                    };
+                    serial
+                });
+                device
+            });
+        };
     }
 
     /// setup the hardware
@@ -81,6 +116,30 @@ const APP: () = {
             &mut device.PM,
         );
 
+        let usb_allocator = unsafe {
+            USB_ALLOCATOR = Some(hal::usb_allocator(
+                device.USB,
+                &mut clocks,
+                &mut device.PM,
+                pins.usb_dm,
+                pins.usb_dp,
+                &mut pins.port,
+            ));
+            USB_ALLOCATOR.as_ref().unwrap()
+        };
+
+        unsafe {
+            USB_SERIAL = Some(SerialPort::new(&usb_allocator));
+            USB_DEVICE = Some(
+                UsbDeviceBuilder::new(&usb_allocator, UsbVidPid(0x16c0, 0x27dd))
+                    .manufacturer("Fake company")
+                    .product("Serial port")
+                    .serial_number("TEST")
+                    .device_class(USB_CLASS_CDC)
+                    .build(),
+            );
+        }
+
         // the ws2812-spi library says between 2-3.8 or something like that
         let my_spi = hal::spi_master(
             &mut clocks,
@@ -101,7 +160,7 @@ const APP: () = {
 
         // TODO: setup USB serial for debug logging
 
-        let every_500_millis = periodic::Periodic::new(500);
+        let every_200_millis = periodic::Periodic::new(500);
 
         // timer for ELAPSED_MILLIS
         // TODO: i am not positive that this is correct. every example seems to do timers differently
@@ -110,18 +169,16 @@ const APP: () = {
         timer4.enable_interrupt();
 
         init::LateResources {
-            every_500_millis,
+            every_200_millis,
             lights: my_lights,
             red_led,
             timer4,
         }
     }
 
-    // `shared` cannot be accessed from this context
-    // TODO: more of this should probably be done with interrupts
     #[idle(resources = [
-        // every_500_millis,
-        // lights,
+        // every_200_millis,
+        lights,
         red_led,
     ])]
     fn idle(c: idle::Context) -> ! {
@@ -135,7 +192,8 @@ const APP: () = {
 
         loop {
             // TODO: change pattern every few seconds?
-            // if every_500_millis.ready() {
+            // TODO: i don't think our Periodic implementation is working. maybe because our timers are not right
+            // if every_200_millis.ready() {
             //     red_led.toggle();
             // }
 
