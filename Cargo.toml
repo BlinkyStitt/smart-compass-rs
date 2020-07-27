@@ -5,9 +5,9 @@ authors = ["Bryan Stitt <bryan@stitthappens.com>"]
 edition = "2018"
 readme = "README.md"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
+# TODO: make sure this matches what is in stm32f3discovery
+accelerometer = "0.11"
 alloc-cortex-m = "0.4"
 asm-delay = "0.9"
 blake2 = { version = "0.9", default-features = false }
@@ -16,7 +16,8 @@ cortex-m-semihosting = "0.3.3"
 embedded-sdmmc = "0.3"
 heapless = "0.5"
 numtoa = "0.2"
-panic-semihosting = "0.5"
+panic-halt = { version = "0.2", optional = true }
+panic-semihosting = { version = "0.5", optional = true }
 radio-sx127x = { path = "../rust-radio-sx127x", default-features = false }
 serde_cbor = { version = "0.11", default-features = false }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
@@ -29,12 +30,33 @@ yanp = "0.1.1"
 # TODO: import smart-leds from ws2812-spi?
 ws2812-spi = "0.3"
 
+# make sure embedded-hal crate matches the board crates (stm32f3, feather_m0, etc.)
+embedded-hal = "*"
+
 [dependencies.stm32f3-discovery]
 path = "../stm32f3-discovery"
+optional = true
+
+[dependencies.feather_m0]
+version = "0.6"
+optional = true
 
 # this lets you use `cargo fix`!
 [[bin]]
-name = "smart-compass-v1"
+name = "smart-compass-stm32f3_discovery"
+required-features = ["stm32f3-discovery", "panic-semihosting"]
+test = false
+bench = false
+
+[[bin]]
+name = "smart-compass-feather_m0"
+required-features = ["feather_m0", "panic-halt"]
+test = false
+bench = false
+
+[[bin]]
+name = "test-lights-feather_m0"
+required-features = ["feather_m0", "panic-halt"]
 test = false
 bench = false
 

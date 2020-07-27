@@ -1,5 +1,4 @@
 use radio_sx127x::prelude::*;
-use stm32f3_discovery::prelude::*;
 
 use crate::{ELAPSED_MS, MAX_PEERS};
 // use blake2::{VarBlake2s};
@@ -61,13 +60,13 @@ pub struct Network<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, 
 impl<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay>
     Network<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay>
 where
-    Spi: _embedded_hal_blocking_spi_Transfer<u8, Error = SpiError>
-        + _embedded_hal_blocking_spi_Write<u8, Error = SpiError>,
-    CsPin: _embedded_hal_digital_OutputPin<Error = PinError>,
-    BusyPin: _embedded_hal_digital_InputPin<Error = PinError>,
-    ReadyPin: _embedded_hal_digital_InputPin<Error = PinError>,
-    ResetPin: _embedded_hal_digital_OutputPin<Error = PinError>,
-    Delay: _embedded_hal_blocking_delay_DelayMs<u32>,
+    Spi: embedded_hal::blocking::spi::Transfer<u8, Error = SpiError>
+        + embedded_hal::blocking::spi::Write<u8, Error = SpiError>,
+    CsPin: embedded_hal::digital::v2::OutputPin<Error = PinError>,
+    BusyPin: embedded_hal::digital::v2::InputPin<Error = PinError>,
+    ReadyPin: embedded_hal::digital::v2::InputPin<Error = PinError>,
+    ResetPin: embedded_hal::digital::v2::OutputPin<Error = PinError>,
+    Delay: embedded_hal::blocking::delay::DelayMs<u32>,
 {
     pub fn new(
         spi: Spi,

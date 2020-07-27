@@ -1,26 +1,23 @@
 #![no_main]
 #![no_std]
+#![feature(alloc_error_handler)]
 
 // panic handler
 use panic_halt as _;
-
-mod battery;
-mod compass;
-mod config;
-mod lights;
-mod location;
-mod network;
-mod periodic;
-mod storage;
 
 pub extern crate feather_m0 as hal;
 
 use hal::prelude::*;
 
+use alloc_cortex_m::CortexMHeap;
+use core::alloc::Layout;
 use asm_delay::AsmDelay;
 use hal::clock::GenericClockController;
 use rtic::app;
 use shared_bus_rtic::SharedBus;
+use smart_compass_v1::{
+    battery, compass, config, lights, location, network, periodic, storage, ELAPSED_MS,
+};
 
 pub type SPIMaster = hal::sercom::SPIMaster4<
     hal::sercom::Sercom4Pad0<hal::gpio::Pa12<hal::gpio::PfD>>,
@@ -181,10 +178,7 @@ const APP: () = {
         // TODO: a real time source from tthe rtc?
         let time_source = storage::DummyTimeSource;
 
-        let sd_controller = embedded_sdmmc::Controller::new(
-            sd_spi,
-            time_source
-        );
+        let sd_controller = embedded_sdmmc::Controller::new(sd_spi, time_source);
 
         // setup the radio
         let radio_spi = shared_spi_manager.acquire();
@@ -200,7 +194,7 @@ const APP: () = {
 
         // TODO: setup compass/orientation sensor
 
-        // setup serial for communicating with the gps module. 
+        // setup serial for communicating with the gps module.
         // TOOD: SERCOM0 or SERCOM1?
         // TODO: what speed?
         let my_uart = hal::uart(
@@ -308,3 +302,8 @@ const APP: () = {
         }
     }
 };
+
+#[alloc_error_handler]
+fn oom(_: Layout) -> ! {
+    loop {}
+}

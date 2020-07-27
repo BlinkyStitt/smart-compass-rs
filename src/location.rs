@@ -6,9 +6,7 @@
 // TODO: i'd really like to use someone else's code here
 // use adafruit_gps::gps::{Gps, GpsSentence};
 // use adafruit_gps::send_pmtk::NmeaOutput;
-use stm32f3_discovery::prelude::*;
-
-use crate::{hal, GPSSerial};
+use embedded_hal::digital::v2::OutputPin;
 use heapless::consts::U256;
 use heapless::spsc::{Consumer, Producer, Queue};
 use numtoa::NumToA;
@@ -16,16 +14,16 @@ use yanp::parse::{GpsPosition, GpsQuality, LongitudeDirection, SentenceData};
 use yanp::parse_nmea_sentence;
 
 /// TODO: use generic types instead of hard coding to match our hardware
-pub struct UltimateGps {
+pub struct UltimateGps<SerialTx: embedded_hal::serial::Write<u8>, EnablePin: OutputPin> {
     queue_rx: Consumer<'static, u8, U256>,
-    serial_tx: hal::serial::Tx<hal::stm32::USART2>,
+    serial_tx: SerialTx,
 
     /// EN is the Enable pin, it is pulled high with a 10K resistor.
     /// When this pin is pulled to ground, it will turn off the GPS module.
     /// This can be handy for very low power projects where you want to easily turn the module off for long periods.
     /// You will lose your fix if you disable the GPS and it will also take a long time to get fix back if you dont
     /// have the backup battery installed.
-    enable_pin: hal::gpio::PXx<hal::gpio::Output<hal::gpio::OpenDrain>>,
+    enable_pin: EnablePin,
 
     // TODO: what size for buffer_len?
     sentence_buffer_len: usize,
@@ -36,12 +34,12 @@ pub struct UltimateGps {
     data: GpsData,
 }
 
-pub struct UltimateGpsQueue {
-    serial_rx: hal::serial::Rx<hal::stm32::USART2>,
+pub struct UltimateGpsQueue<SerialRx: embedded_hal::serial::Read<u8>> {
+    serial_rx: SerialRx,
     queue_tx: Producer<'static, u8, U256>,
 }
 
-impl UltimateGpsQueue {
+impl<SerialRx: embedded_hal::serial::Read<u8>> UltimateGpsQueue<SerialRx> {
     /// Read a byte into the queue
     /// this gets called inside an interrupt, so make this fast!
     pub fn read(&mut self) {
@@ -134,15 +132,14 @@ impl GpsData {
     }
 }
 
-impl UltimateGps {
-    pub fn new(
-        uart: GPSSerial,
-        enable_pin: hal::gpio::PXx<hal::gpio::Output<hal::gpio::OpenDrain>>,
+impl<SerialTx: embedded_hal::serial::Write<u8>, EnablePin: OutputPin> UltimateGps<SerialTx, EnablePin> {
+    pub fn new<SerialRx: embedded_hal::serial::Read<u8>>(
+        serial_tx: SerialTx,
+        serial_rx: SerialRx,
+        enable_pin: EnablePin,
         // TODO: `pps_pin` on an interrupt
         // pps_pin:
-    ) -> (Self, UltimateGpsQueue) {
-        let (serial_tx, serial_rx) = uart.split();
-
+    ) -> (Self, UltimateGpsQueue<SerialRx>) {
         // `heapless::i` is an "unfortunate implementation detail required to construct heapless types in const context"
         // TODO: do the static outside this?
         static mut Q: Queue<u8, U256> = Queue(heapless::i::Queue::new());

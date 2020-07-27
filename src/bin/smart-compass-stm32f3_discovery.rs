@@ -5,16 +5,7 @@
 // panic handler
 use panic_semihosting as _;
 
-mod battery;
-// mod compass;
-// mod config;
-mod lights;
-mod location;
-mod network;
-mod periodic;
-mod storage;
-
-use stm32f3_discovery::prelude::*;
+pub use stm32f3_discovery::prelude::*;
 
 use alloc_cortex_m::CortexMHeap;
 use asm_delay::AsmDelay;
@@ -22,6 +13,7 @@ use core::alloc::Layout;
 use cortex_m_semihosting::hprintln;
 use rtic::app;
 use shared_bus_rtic::SharedBus;
+use smart_compass_v1::{battery, lights, location, network, periodic, storage, ELAPSED_MS};
 use stm32f3_discovery::accelerometer::{Orientation, RawAccelerometer};
 use stm32f3_discovery::compass::Compass;
 use stm32f3_discovery::cortex_m::asm::delay;
@@ -54,6 +46,10 @@ pub type MySpi2 = hal::spi::Spi<
 >;
 
 /// TODO: what should we name this
+type MyLights = lights::Lights<MySpi2>;
+
+// TODO: move this into the bin somehow. not everythiing will want USART2
+/// TODO: what should we name this
 type GPSSerial = hal::serial::Serial<
     hal::stm32::USART2,
     (
@@ -61,11 +57,6 @@ type GPSSerial = hal::serial::Serial<
         hal::gpio::gpiod::PD6<hal::gpio::AF7>,
     ),
 >;
-
-/// TODO: what should we name this
-type MyLights = lights::Lights<MySpi2>;
-
-/// TODO: what should we name this
 
 /// TODO: what should we name this
 type SdController<SpiWrapper> = embedded_sdmmc::Controller<
@@ -98,17 +89,12 @@ pub struct SharedSPIResources {
 
 // static globals
 // TODO: what type?
-const MAX_PEERS: usize = 5;
 const NUM_TIME_SEGMENTS: usize = MAX_PEERS * MAX_PEERS;
 const TIME_SEGMENT_S: usize = 2;
 // /// the number of ms to offset our network timer. this is time to send+receive+process+draw
 // static NETWORK_OFFSET: u16 = 125 + 225;
 const DEFAULT_BRIGHTNESS: u8 = 128;
 const FRAMES_PER_SECOND: u8 = 30;
-
-// TODO: use rtic resources instead
-static mut ELAPSED_MS: u32 = 0;
-// TODO: what size queue?
 
 #[app(device = stm32f3_discovery::hal::stm32, peripherals = true)]
 const APP: () = {
@@ -342,7 +328,9 @@ const APP: () = {
             .downgrade()
             .downgrade();
 
-        let (my_gps, my_gps_queue) = location::UltimateGps::new(gps_uart, gps_enable_pin);
+        let (gps_tx, gps_rx) = gps_uart.split();
+
+        let (my_gps, my_gps_queue) = location::UltimateGps::new(gps_tx, gps_rx, gps_enable_pin);
 
         // create lights
         // TODO: is spi a good interface for this? whats the best way to run ws2812s?

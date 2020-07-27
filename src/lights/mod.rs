@@ -1,26 +1,25 @@
 mod networked;
 mod patterns;
 
-use stm32f3_discovery::prelude::*;
-
 use crate::periodic::Periodic;
+use embedded_hal::spi;
 use smart_leds::{brightness, gamma, SmartLedsWrite, RGB8};
-use stm32f3_discovery::accelerometer::Orientation;
+use accelerometer::Orientation;
 use ws2812_spi::Ws2812;
 
 /// TODO: better trait bounds?
-pub struct Lights<SpiWrapper: _embedded_hal_spi_FullDuplex<u8>> {
+pub struct Lights<Spi: spi::FullDuplex<u8>> {
     brightness: u8,
     framerate: Periodic,
-    lights: Ws2812<SpiWrapper>,
+    lights: Ws2812<Spi>,
     orientation: Orientation,
     last_orientation: Orientation,
 
     light_data: [RGB8; 256],
 }
 
-impl<SpiWrapper: _embedded_hal_spi_FullDuplex<u8>> Lights<SpiWrapper> {
-    pub fn new(spi: SpiWrapper, brightness: u8, frames_per_second: u8) -> Self {
+impl<Spi: spi::FullDuplex<u8>> Lights<Spi> {
+    pub fn new(spi: Spi, brightness: u8, frames_per_second: u8) -> Self {
         let lights = Ws2812::new(spi);
 
         let light_data: [RGB8; 256] = [RGB8::default(); 256];
