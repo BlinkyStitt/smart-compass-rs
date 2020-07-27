@@ -14,6 +14,7 @@ use alloc_cortex_m::CortexMHeap;
 use asm_delay::AsmDelay;
 use core::alloc::Layout;
 use hal::clock::GenericClockController;
+use numtoa::NumToA;
 use rtic::app;
 use smart_compass::{lights, periodic, ELAPSED_MS};
 use usbd_serial::{SerialPort, USB_CLASS_CDC};
@@ -49,11 +50,9 @@ const APP: () = {
     }
 
     /// This function is called each time the tc4 interrupt triggers.
-    /// We use it to toggle the LED.  The `wait()` call is important
-    /// because it checks and resets the counter ready for the next
-    /// period.
+    /// The `wait()` call is important because it checks and resets the counter ready for the next period.
     /// TODO: is this how arduino's millis function works?
-    /// TODO: i don't think this is working. get usb echo working, then change to use it for logging
+    /// TODO: this is firing WAY more often than it is supposed to. what am i doing wrong?
     #[task(binds = TC4, resources = [timer4], priority = 3)]
     fn tc4(c: tc4::Context) {
         if c.resources.timer4.wait().is_ok() {
@@ -70,13 +69,16 @@ const APP: () = {
             USB_DEVICE.as_mut().map(|device| {
                 USB_SERIAL.as_mut().map(|serial| {
                     device.poll(&mut [serial]);
-                    let mut buf = [0u8; 64];
-    
-                    if let Ok(count) = serial.read(&mut buf) {
-                        // TODO: instead of just echoing, prefix with ELAPSED_MS
-                        serial.write(b"X - ").ok().unwrap();
+                    let mut msg_buf = [0u8; 64];
 
-                        for (i, c) in buf.iter().enumerate() {
+                    if let Ok(count) = serial.read(&mut msg_buf) {
+                        // TODO: instead of just echoing, prefix with ELAPSED_MS
+                        let mut time_buf = [0u8; 32];
+                        serial.write(ELAPSED_MS.numtoa(10, &mut time_buf));
+
+                        serial.write(b" - ").ok().unwrap();
+
+                        for (i, c) in msg_buf.iter().enumerate() {
                             if i >= count {
                                 break;
                             }
@@ -116,6 +118,7 @@ const APP: () = {
             &mut device.PM,
         );
 
+        // setup USB serial for debug logging
         let usb_allocator = unsafe {
             USB_ALLOCATOR = Some(hal::usb_allocator(
                 device.USB,
@@ -158,14 +161,10 @@ const APP: () = {
         // external LEDs
         let my_lights = lights::Lights::new(my_spi, DEFAULT_BRIGHTNESS, FRAMES_PER_SECOND);
 
-        // TODO: setup USB serial for debug logging
-
-        let every_200_millis = periodic::Periodic::new(500);
+        let every_200_millis = periodic::Periodic::new(200);
 
         // timer for ELAPSED_MILLIS
-        // TODO: i am not positive that this is correct. every example seems to do timers differently
-        // the feather_m0 runs at 48 MHz. so 48 MHz / 1000 milliseconds = MHz / millisecond
-        timer4.start(48.khz());
+        timer4.start(1000.hz());
         timer4.enable_interrupt();
 
         init::LateResources {
@@ -177,32 +176,21 @@ const APP: () = {
     }
 
     #[idle(resources = [
-        // every_200_millis,
-        lights,
+        every_200_millis,
         red_led,
     ])]
     fn idle(c: idle::Context) -> ! {
-        // let my_lights = c.resources.lights;
-        // let every_500_millis = c.resources.every_500_millis;
+        let every_200_millis = c.resources.every_200_millis;
         let red_led = c.resources.red_led;
 
         let mut delay = AsmDelay::new(asm_delay::bitrate::U32BitrateExt::mhz(48));
 
-        // my_lights.draw_test_pattern();
-
         loop {
-            // TODO: change pattern every few seconds?
-            // TODO: i don't think our Periodic implementation is working. maybe because our timers are not right
-            // if every_200_millis.ready() {
-            //     red_led.toggle();
-            // }
+            if every_200_millis.ready() {
+                red_led.toggle();
+            }
 
-            red_led.set_high().unwrap();
-            delay.delay_ms(200u8);
-            red_led.set_low().unwrap();
-            delay.delay_ms(200u8);
-
-            // my_lights.draw();
+            delay.delay_ms(100u8);
         }
     }
 };
