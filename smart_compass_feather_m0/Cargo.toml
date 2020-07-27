@@ -12,10 +12,10 @@ cortex-m-semihosting = "0.3.3"
 feather_m0 = "0.6"
 heapless = "0.5"
 panic-halt = { version = "0.2" }
-shared-bus-rtic = "0.2.2"
+shared-bus-rtic = { version = "0.2.2", features = ["thumbv6"] }
 smart_compass = { path = "../smart_compass" }
 
-# TODO: make sure this matches the feather_m0 crate!
+# TODO: make sure this matches the feather_m0 crate! (or have them export it)
 cortex-m-rt = "0.6"
 
 # this lets you use `cargo fix`!

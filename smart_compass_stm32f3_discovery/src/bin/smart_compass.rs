@@ -60,9 +60,13 @@ type GPSSerial = hal::serial::Serial<
     ),
 >;
 
-type MyGps = location::UltimateGps<hal::serial::Tx<hal::stm32::USART2>, hal::gpio::PXx<hal::gpio::Output<hal::gpio::OpenDrain>>>;
+type MyGps = location::UltimateGps<
+    hal::serial::Tx<hal::stm32::USART2>,
+    hal::gpio::PXx<hal::gpio::Output<hal::gpio::OpenDrain>>,
+>;
 
-type MyGpsQueue = location::UltimateGpsQueue<stm32f3_discovery::hal::serial::Rx<hal::stm32::USART2>>;
+type MyGpsQueue =
+    location::UltimateGpsQueue<stm32f3_discovery::hal::serial::Rx<hal::stm32::USART2>>;
 
 /// TODO: what should we name this
 type SdController<Spi> = storage::embedded_sdmmc::Controller<
@@ -315,7 +319,7 @@ const APP: () = {
             .downgrade()
             .downgrade();
 
-        let (gps_tx , gps_rx) = gps_uart.split();
+        let (gps_tx, gps_rx) = gps_uart.split();
 
         let (my_gps, my_gps_queue) = location::UltimateGps::new(gps_tx, gps_rx, gps_enable_pin);
 
@@ -341,7 +345,12 @@ const APP: () = {
 
         // TODO: how often should we do this?
         // check the batterry every minute
-        let battery = battery::Battery::new(gpioc.pc8.into_pull_down_input(&mut gpioc.moder, &mut gpioc.pupdr), 60_000);
+        let battery = battery::Battery::new(
+            gpioc
+                .pc8
+                .into_pull_down_input(&mut gpioc.moder, &mut gpioc.pupdr),
+            60_000,
+        );
 
         let shared_spi_resources = SharedSPIResources {
             network: my_network,

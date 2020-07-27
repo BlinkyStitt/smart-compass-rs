@@ -4,9 +4,9 @@ mod patterns;
 pub use ws2812_spi;
 
 use crate::periodic::Periodic;
+use accelerometer::Orientation;
 use embedded_hal::spi;
 use smart_leds::{brightness, gamma, SmartLedsWrite, RGB8};
-use accelerometer::Orientation;
 use ws2812_spi::Ws2812;
 
 /// TODO: better trait bounds?

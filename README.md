@@ -19,9 +19,46 @@ rustup target add thumbv7em-none-eabihf
 cargo install cargo-hf2
 ```
 
-## Todo
+## Development
 
-- add memory.x and openocd files for feather_m0
+1. Hit the device reset button twice.
+
+2. Build and upload one of the programs:
+
+    ```sh
+    # OR
+    cd smart_compass_feather_m0
+    cargo hf2 --release --bin test_lights
+
+    # OR if hf2 doesn't work
+    cd smart_compass_feather_m0
+
+    cargo build --release --bin test_lights
+
+    arm-none-eabi-objcopy -O binary \
+        ../target/thumbv6m-none-eabi/release/test_lights \
+        ../target/thumbv6m-none-eabi/release/test_lights.bin
+
+    # note: if Mac Catalina is trying to delete this file, open system preferences > Security and there should be a buttoon to allow arm-none-eabi-objcopy.
+
+    # plug in the feather_m0
+
+    # MAYBE: stty -F /dev/cu.usbmodem14201 ospeed 1200
+
+    # double press the reset button
+
+    ~/Library/Arduino15/packages/arduino/tools/bossac/1.7.0/bossac -i -d -U true -i -e -w -v \
+        --port=cu.usbmodem14201 \
+        ../target/thumbv6m-none-eabi/release/test_lights.bin -R
+
+    # OR
+    cd smart_compass_feather_m0
+    cargo hf2 --release --bin smart_compass
+
+    # OR
+    cd smart_compass_stm32f3_discovery
+    cargo hf2 --release --bin smart_compass
+    ```
 
 ## Reading
 

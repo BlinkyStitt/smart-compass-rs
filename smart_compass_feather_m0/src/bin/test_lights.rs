@@ -9,11 +9,11 @@ pub extern crate feather_m0 as hal;
 
 use hal::prelude::*;
 
-use rtic::app;
-use smart_compass::{lights, ELAPSED_MS};
-use hal::clock::GenericClockController;
 use alloc_cortex_m::CortexMHeap;
 use core::alloc::Layout;
+use hal::clock::GenericClockController;
+use rtic::app;
+use smart_compass::{lights, ELAPSED_MS};
 
 // TODO: i'm not sure what I did to require an allocator
 #[global_allocator]

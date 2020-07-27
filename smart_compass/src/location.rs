@@ -133,7 +133,9 @@ impl GpsData {
     }
 }
 
-impl<SerialTx: embedded_hal::serial::Write<u8>, EnablePin: OutputPin> UltimateGps<SerialTx, EnablePin> {
+impl<SerialTx: embedded_hal::serial::Write<u8>, EnablePin: OutputPin>
+    UltimateGps<SerialTx, EnablePin>
+{
     pub fn new<SerialRx: embedded_hal::serial::Read<u8>>(
         serial_tx: SerialTx,
         serial_rx: SerialRx,

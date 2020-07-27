@@ -17,10 +17,7 @@ pub struct Battery<StatusInputPin> {
 }
 
 impl<StatusInputPin: InputPin> Battery<StatusInputPin> {
-    pub fn new(
-        pin: StatusInputPin,
-        check_ms: u32,
-    ) -> Self {
+    pub fn new(pin: StatusInputPin, check_ms: u32) -> Self {
         // TODO: use rtic's periodic tasks instead of our own
         // TODO: should this use the rtc?
         let check_interval = Periodic::new(check_ms);
