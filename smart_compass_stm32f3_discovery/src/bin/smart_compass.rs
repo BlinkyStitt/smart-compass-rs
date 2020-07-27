@@ -25,6 +25,8 @@ use stm32f3_discovery::leds::Leds as CompassLeds;
 #[global_allocator]
 static ALLOCATOR: CortexMHeap = CortexMHeap::empty();
 
+type MyBattery = battery::Battery<hal::gpio::gpioc::PC8<hal::gpio::Input<hal::gpio::PullDown>>>;
+
 /// TODO: what should we name this
 // TODO: less specific type than AF5
 pub type MySpi1 = hal::spi::Spi<
@@ -58,6 +60,10 @@ type GPSSerial = hal::serial::Serial<
     ),
 >;
 
+type MyGps = location::UltimateGps<hal::serial::Tx<hal::stm32::USART2>, hal::gpio::PXx<hal::gpio::Output<hal::gpio::OpenDrain>>>;
+
+type MyGpsQueue = location::UltimateGpsQueue<stm32f3_discovery::hal::serial::Rx<hal::stm32::USART2>>;
+
 /// TODO: what should we name this
 type SdController<Spi> = storage::embedded_sdmmc::Controller<
     storage::embedded_sdmmc::SdMmcSpi<
@@ -71,7 +77,6 @@ type SdController<Spi> = storage::embedded_sdmmc::Controller<
 type MyNetwork<Spi> = network::Network<
     Spi,
     hal::spi::Error,
-    // TODO: put specific pins here again
     hal::gpio::PXx<hal::gpio::Output<hal::gpio::PushPull>>,
     hal::gpio::PXx<hal::gpio::Input<hal::gpio::PullDown>>,
     hal::gpio::PXx<hal::gpio::Input<hal::gpio::PullDown>>,
@@ -100,26 +105,17 @@ const FRAMES_PER_SECOND: u8 = 30;
 #[app(device = stm32f3_discovery::hal::stm32, peripherals = true)]
 const APP: () = {
     struct Resources {
-        battery: battery::Battery<()>,
+        battery: MyBattery,
         // TODO: put compass in a shared_resources helper if theres more than one i2c
         compass: Compass,
         compass_lights: CompassLeds,
         lights: MyLights,
-        gps: location::UltimateGps<stm32f3_discovery::hal::serial::Tx<u8>, hal::gpio::PXx<hal::gpio::OpenDrain>>,
-        gps_queue: location::UltimateGpsQueue<stm32f3_discovery::hal::serial::Rx<u8>>,
+        gps: MyGps,
+        gps_queue: MyGpsQueue,
         shared_spi_resources: SharedSPIResources,
         // timer4: hal::timer::Timer<hal::stm32::TIM4>,
         timer7: hal::timer::Timer<hal::stm32::TIM7>,
     }
-
-    // TODO: low priority?
-    // #[task(binds = TIM4, resources = [timer4])]
-    // fn tim4(c: tim4::Context) {
-    //     if c.resources.timer4.wait().is_ok() {
-    //         // c.resources.gps.read();
-    //         todo!("read gps");
-    //     }
-    // }
 
     #[task(binds = TIM7, resources = [timer7, gps_queue])]
     fn tim7(c: tim7::Context) {
@@ -172,16 +168,6 @@ const APP: () = {
         // let delay = hal::delay::Delay::new(device.SYST, &mut clocks);
         // TODO: get the processor mhz dynamically? `clocks.sysclk()`?
         let delay = AsmDelay::new(asm_delay::bitrate::U32BitrateExt::mhz(72));
-
-        // TODO: what other timers are available? which should we use? i'm just using 7 because thats what the example used
-        // TODO: how often should we try to read the gps? the example did every 10hz, but that seems like a lot
-        // let mut timer4 = hal::timer::Timer::tim4(
-        //     device.TIM4,
-        //     10.hz(),
-        //     clocks,
-        //     &mut reset_and_clock_control.apb1,
-        // );
-        // timer4.listen(hal::timer::Event::Update);
 
         // TODO: how many hz to 1 millisecond? i think we have a 72mhz processor, so 72_000
         // TODO: calculate this in case we run at a different speed
@@ -355,7 +341,7 @@ const APP: () = {
 
         // TODO: how often should we do this?
         // check the batterry every minute
-        let battery = battery::Battery::new(gpioc.pc8, &mut gpioc.moder, &mut gpioc.pupdr, 60_000);
+        let battery = battery::Battery::new(gpioc.pc8.into_pull_down_input(&mut gpioc.moder, &mut gpioc.pupdr), 60_000);
 
         let shared_spi_resources = SharedSPIResources {
             network: my_network,

@@ -97,7 +97,7 @@ const APP: () = {
 
         // timer for ELAPSED_MILLIS
         // TODO: i am not positive that this is correct. every example seems to do timers differently
-        // the feather_m0 runs at 48 MHz
+        // the feather_m0 runs at 48 MHz. so 48 MHz / 1000 milliseconds = MHz / millisecond
         timer4.start(48.khz());
         timer4.enable_interrupt();
 

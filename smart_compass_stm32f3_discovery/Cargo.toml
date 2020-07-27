@@ -20,6 +20,6 @@ path = "../../stm32f3-discovery"
 
 # this lets you use `cargo fix`!
 [[bin]]
-name = "smart_compass_stm32f3_discovery"
+name = "smart_compass"
 test = false
 bench = false

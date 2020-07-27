@@ -20,6 +20,6 @@ cortex-m-rt = "0.6"
 
 # this lets you use `cargo fix`!
 [[bin]]
-name = "smart_compass_feather_m0"
+name = "test_lights"
 test = false
 bench = false

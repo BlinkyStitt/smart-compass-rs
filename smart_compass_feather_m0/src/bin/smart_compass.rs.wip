@@ -68,9 +68,9 @@ static FRAMES_PER_SECOND: u8 = 30;
 #[app(device = hal::pac, peripherals = true)]
 const APP: () = {
     struct Resources {
-        every_300_seconds: periodic::Periodic,
-        lights: lights::Lights<hal::gpio::Pa15<hal::gpio::Output<hal::gpio::PushPull>>>,
-        gps: location::UltimateGps,
+        // every_300_seconds: periodic::Periodic,
+        lights: lights::Lights<SPIMaster>,
+        // gps: location::UltimateGps,
         shared_spi_resources: SharedSPIResources,
         red_led: hal::gpio::Pa17<hal::gpio::Output<hal::gpio::OpenDrain>>,
         timer3: hal::timer::TimerCounter3,
@@ -88,14 +88,8 @@ const APP: () = {
             unsafe {
                 ELAPSED_MS += 1;
             }
-        }
-    }
 
-    // TODO: low priority?
-    #[task(binds = TC4, resources = [timer4, gps])]
-    fn tc4(c: tc4::Context) {
-        if c.resources.timer4.wait().is_ok() {
-            c.resources.gps.read();
+            // TODO: read gps
         }
     }
 
@@ -161,7 +155,7 @@ const APP: () = {
         let rfm95_ready = pins.a2.into_pull_down_input(&mut pins.port);
         let floating_pin = pins.a3.into_floating_input(&mut pins.port);
         // TODO: pick a real pin
-        let gps_enable_pin = pins.a4;
+        let gps_enable_pin = pins.a4.into_open_drain_output(&mut pins.port);
 
         // TODO: what speed? m4 maxes at 24mhz. is m0 the same? what
         let my_spi = hal::spi_master(
@@ -220,11 +214,12 @@ const APP: () = {
         let my_gps = location::UltimateGps::new(gps_tx, gps_rx, gps_enable_pin);
 
         // create lights
-        let my_lights = lights::Lights::new(led_data, DEFAULT_BRIGHTNESS, FRAMES_PER_SECOND);
+        // TODO: our light code uses SPI, but we only have the one bus and its running too fast. we would also need too figure out a CS pin
+        // let my_lights = lights::Lights::new(my_spi, DEFAULT_BRIGHTNESS, FRAMES_PER_SECOND);
 
         // TODO: use rtic's periodic tasks instead of our own
         // TODO: should this use the rtc?
-        let every_300_seconds = periodic::Periodic::new(300 * 1000);
+        // let every_300_seconds = periodic::Periodic::new(300 * 1000);
 
         // timer for ELAPSED_MILLIS
         timer3.start(1.ms());
@@ -239,11 +234,11 @@ const APP: () = {
             sd_controller,
         };
 
+        // TODO: battery check code
         init::LateResources {
-            every_300_seconds,
             lights: my_lights,
             shared_spi_resources,
-            gps: my_gps,
+            // gps: my_gps,
             red_led,
             timer3,
             timer4,
@@ -253,15 +248,13 @@ const APP: () = {
     // `shared` cannot be accessed from this context
     // TODO: more of this should probably be done with interrupts
     #[idle(resources = [
-        every_300_seconds,
-        gps,
+        // gps,
         lights,
         shared_spi_resources,
         red_led,
     ])]
     fn idle(c: idle::Context) -> ! {
-        let every_300_seconds = c.resources.every_300_seconds;
-        let my_gps = c.resources.gps;
+        // let my_gps = c.resources.gps;
         let my_lights = c.resources.lights;
         let shared_spi_resources = c.resources.shared_spi_resources;
         let red_led = c.resources.red_led;
@@ -269,6 +262,8 @@ const APP: () = {
         red_led.set_high().unwrap();
 
         loop {
+            // TODO: battery code changed. update this to match
+            /*
             if every_300_seconds.ready() {
                 // TODO: set the brightness based on the battery level
                 // TODO: is rounding here okay?
@@ -281,6 +276,7 @@ const APP: () = {
 
                 my_lights.set_brightness(new_brightness);
             }
+            */
 
             // TODO: get the actual orientation from a sensor
             // TODO: should this be a global?

@@ -15,6 +15,7 @@ use yanp::parse_nmea_sentence;
 
 /// TODO: use generic types instead of hard coding to match our hardware
 pub struct UltimateGps<SerialTx: embedded_hal::serial::Write<u8>, EnablePin: OutputPin> {
+    // TODO: is having this be static correct?
     queue_rx: Consumer<'static, u8, U256>,
     serial_tx: SerialTx,
 
