@@ -4,6 +4,11 @@ version = "0.1.0"
 authors = ["Bryan Stitt <bryan@stitthappens.com>"]
 edition = "2018"
 
+[features]
+default = ["usb"]
+
+usb = ["feather_m0/usb"]
+
 [dependencies]
 alloc-cortex-m = "0.4"
 asm-delay = "0.9"
@@ -23,3 +28,4 @@ cortex-m-rt = "0.6"
 name = "test_lights"
 test = false
 bench = false
+required-features = ["usb"]
