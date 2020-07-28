@@ -629,6 +629,7 @@ version = "0.1.0"
 dependencies = [
  "alloc-cortex-m 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "asm-delay 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cortex-m 0.6.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "cortex-m-rt 0.6.12 (registry+https://github.com/rust-lang/crates.io-index)",
  "cortex-m-rtic 0.5.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "cortex-m-semihosting 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -640,7 +641,7 @@ dependencies = [
  "smart_compass 0.1.0",
  "usb-device 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "usbd-serial 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "ws2812-spi 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ws2812-nop-samd21 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -826,6 +827,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ws2812-nop-samd21"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "cortex-m 0.6.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cortex-m-rt 0.6.12 (registry+https://github.com/rust-lang/crates.io-index)",
+ "embedded-hal 0.2.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "smart-leds-trait 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "ws2812-spi"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -936,5 +948,6 @@ dependencies = [
 "checksum version_check 0.9.2 (registry+https://github.com/rust-lang/crates.io-index)" = "b5a972e5669d67ba988ce3dc826706fb0a8b01471c088cb0b6110b805cc36aed"
 "checksum void 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)" = "6a02e4885ed3bc0f2de90ea6dd45ebcbb66dacffe03547fadbb0eeae2770887d"
 "checksum volatile-register 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "0d67cb4616d99b940db1d6bd28844ff97108b498a6ca850e5b6191a532063286"
+"checksum ws2812-nop-samd21 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)" = "04f5b240aa54a3de26fac9f2f9d44133de5e5aafc4ff74d335fb47b457a4cd44"
 "checksum ws2812-spi 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)" = "c6c2ba0d6c0ea9c117487411e93dc5dacaafc2c17698677a03d1c67901d4c70a"
 "checksum yanp 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "529edf891c41afc95d803ab1a55257a66f7ca90332a45aeba37b7f91efedba43"

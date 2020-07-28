@@ -1,6 +1,7 @@
 #![no_main]
 #![no_std]
 #![feature(alloc_error_handler)]
+#![feature(asm)]
 
 // panic handler
 use panic_halt as _;
@@ -18,7 +19,7 @@ use numtoa::NumToA;
 use rtic::app;
 use smart_compass::{lights, periodic, ELAPSED_MS};
 use usbd_serial::{SerialPort, USB_CLASS_CDC};
-use ws2812_spi::Ws2812;
+use ws2812_nop_samd21::Ws2812;
 
 // TODO: do this without allocating (i think its the light test patterns)
 #[global_allocator]
@@ -44,7 +45,7 @@ static mut USB_SERIAL: Option<usbd_serial::SerialPort<hal::UsbBus>> = None;
 #[app(device = hal::pac, peripherals = true)]
 const APP: () = {
     struct Resources {
-        lights: lights::Lights<Ws2812<SPIMaster>>,
+        lights: lights::Lights<Ws2812<hal::gpio::Pb10<hal::gpio::Output<hal::gpio::PushPull>>>>,
         every_200_millis: periodic::Periodic,
         red_led: hal::gpio::Pa17<hal::gpio::Output<hal::gpio::OpenDrain>>,
         timer4: hal::timer::TimerCounter4,
@@ -144,24 +145,17 @@ const APP: () = {
             );
         }
 
-        // the ws2812-spi library says between 2-3.8 or something like that
-        let my_spi = hal::spi_master(
-            &mut clocks,
-            3200.khz(),
-            device.SERCOM4,
-            &mut device.PM,
-            pins.sck,
-            pins.mosi,
-            pins.miso,
-            &mut pins.port,
-        );
-
         // onboard LED
         let red_led = pins.d13.into_open_drain_output(&mut pins.port);
 
         // external LEDs
-        let my_lights =
-            lights::Lights::new(Ws2812::new(my_spi), DEFAULT_BRIGHTNESS, FRAMES_PER_SECOND);
+        let light_pin = pins.mosi.into_push_pull_output(&mut pins.port);
+
+        let my_lights = lights::Lights::new(
+            Ws2812::new(light_pin),
+            DEFAULT_BRIGHTNESS,
+            FRAMES_PER_SECOND,
+        );
 
         let every_200_millis = periodic::Periodic::new(200);
 
@@ -191,16 +185,23 @@ const APP: () = {
 
         delay.delay_ms(200u16);
 
-        my_lights.draw_black();
+        cortex_m::interrupt::free(|_| {
+            my_lights.draw_black();
+        });
 
         delay.delay_ms(1000u16);
 
-        my_lights.draw_test_pattern();
+        cortex_m::interrupt::free(|_| {
+            my_lights.draw_test_pattern();
+        });
 
         loop {
             if every_200_millis.ready() {
                 red_led.toggle();
-                my_lights.draw_test_pattern();
+
+                cortex_m::interrupt::free(|_| {
+                    my_lights.draw_test_pattern();
+                });
             }
 
             delay.delay_ms(100u8);
