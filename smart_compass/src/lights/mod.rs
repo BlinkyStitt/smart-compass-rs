@@ -66,12 +66,12 @@ where
 
     #[cfg(feature = "lights_interrupt_free")]
     #[inline]
-    fn write(&mut self, data: &[RGB8], brightness_: u8) {
+    fn write(&mut self, data: &[RGB8]) {
         // correct the colors
         let data = gamma(data.iter().cloned());
 
         // dim the lights
-        let data = brightness(data, brightness_);
+        let data = brightness(data, self.brightness);
 
         // disable interrupts
         cortex_m::interrupt::free(|_| {
@@ -81,13 +81,13 @@ where
 
     #[cfg(not(feature = "lights_interrupt_free"))]
     #[inline]
-    fn write(&mut self, data: &[RGB8], brightness_: u8)
+    fn write(&mut self, data: &[RGB8])
     {
         // correct the colors
         let data = gamma(data.iter().cloned());
 
         // dim the lights
-        let data = brightness(data, brightness_);
+        let data = brightness(data, self.brightness);
 
         // display
         self.leds.write(data).ok().unwrap();
@@ -97,7 +97,7 @@ where
     pub fn draw_black(&mut self) {
         static ALL_BLACK: [RGB8; 256] = [RGB8::new(0, 0, 0); 256];
 
-        self.write(&ALL_BLACK, 0);
+        self.write(&ALL_BLACK);
     }
 
     pub fn draw_test_pattern(&mut self) {
@@ -122,7 +122,7 @@ where
         data[255].g = 0xFF;
         data[255].b = 0xFF;
 
-        self.write(&data, self.brightness);
+        self.write(&data);
     }
 
     /// TODO: return the result instead of unwrapping?
@@ -164,6 +164,6 @@ where
         let data = self.light_data.clone();
 
         // display
-        self.write(&data, self.brightness);
+        self.write(&data);
     }
 }
