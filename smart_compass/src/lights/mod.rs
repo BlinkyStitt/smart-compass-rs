@@ -107,11 +107,11 @@ impl<Spi: spi::FullDuplex<u8>> Lights<Spi> {
             b: 0xFF,
         };
 
-        // correct colors
-        let data = gamma(data.iter().cloned());
-
         // dim the lights
-        let data = brightness(data, 16);
+        let data = brightness(data.iter().cloned(), 16);
+
+        // correct colors
+        let data = gamma(data);
 
         // TODO: do this without cloning?
         self.lights.write(data).ok().unwrap();
@@ -157,54 +157,14 @@ impl<Spi: spi::FullDuplex<u8>> Lights<Spi> {
         // get the data
         let data = &self.light_data;
 
-        // correct colors
-        let data = gamma(data.iter().cloned());
-
         // dim the lights
-        let data = brightness(data, my_brightness);
+        let data = brightness(data.iter().cloned(), my_brightness);
+
+        // correct colors
+        let data = gamma(data);
 
         // display
         // some drivers may need us to disable interrupts, but SPI should work with them
         self.lights.write(data).ok().unwrap();
     }
 }
-
-/*
-test pattern:
-
-    let mut light_data: [RGB8; 256] = [RGB8::default(); 256];
-
-    // one red
-    light_data[0] = RGB8 {
-        r: 0xFF,
-        g: 0,
-        b: 0,
-    };
-    // 2 green
-    light_data[1] = RGB8 {
-        r: 0,
-        g: 0xFF,
-        b: 0,
-    };
-    light_data[2] = RGB8 {
-        r: 0,
-        g: 0xFF,
-        b: 0,
-    };
-    // 3 blue
-    light_data[3] = RGB8 {
-        r: 0,
-        g: 0,
-        b: 0xFF,
-    };
-    light_data[4] = RGB8 {
-        r: 0,
-        g: 0,
-        b: 0xFF,
-    };
-    light_data[5] = RGB8 {
-        r: 0,
-        g: 0,
-        b: 0xFF,
-    };
-*/
