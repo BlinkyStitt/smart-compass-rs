@@ -23,7 +23,3 @@ shared-bus-rtic = "0.2.2"
 smart-leds = "0.3"
 time = { git = "https://github.com/time-rs/time.git", rev = "c49cca20a6ebd72ba403bae331555b7e4a42cb75", default-features = false }
 yanp = "0.1.1"
-
-# make sure ws2812 crate uses the same smart-leds-trait crate as smart-leds
-# TODO: import smart-leds from ws2812-spi?
-ws2812-spi = "0.3"

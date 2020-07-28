@@ -1,29 +1,24 @@
 mod networked;
 mod patterns;
 
-pub use ws2812_spi;
-
 use crate::periodic::Periodic;
 use accelerometer::Orientation;
-use embedded_hal::spi;
-use smart_leds::{brightness, gamma, SmartLedsWrite, RGB8};
-use ws2812_spi::Ws2812;
+// TODO: use smart_leds::gamma
+use smart_leds::{brightness, SmartLedsWrite, RGB8};
 
 /// TODO: better trait bounds?
-pub struct Lights<Spi: spi::FullDuplex<u8>> {
+pub struct Lights<SmartLeds: SmartLedsWrite> {
     brightness: u8,
     framerate: Periodic,
-    lights: Ws2812<Spi>,
+    leds: SmartLeds,
     orientation: Orientation,
     last_orientation: Orientation,
 
     light_data: [RGB8; 256],
 }
 
-impl<Spi: spi::FullDuplex<u8>> Lights<Spi> {
-    pub fn new(spi: Spi, brightness: u8, frames_per_second: u8) -> Self {
-        let lights = Ws2812::new(spi);
-
+impl<SmartLeds: SmartLedsWrite> Lights<SmartLeds> {
+    pub fn new(leds: SmartLeds, brightness: u8, frames_per_second: u8) -> Self {
         let light_data: [RGB8; 256] = [RGB8::default(); 256];
 
         let framerate_ms = 1_000 / (frames_per_second as u32);
@@ -36,7 +31,7 @@ impl<Spi: spi::FullDuplex<u8>> Lights<Spi> {
         Self {
             brightness,
             framerate,
-            lights,
+            leds,
             orientation,
             last_orientation,
             light_data,
@@ -67,65 +62,40 @@ impl<Spi: spi::FullDuplex<u8>> Lights<Spi> {
         todo!();
     }
 
-    pub fn draw_black(&mut self) {
-        let data: [RGB8; 256] = [RGB8::new(0, 0, 0); 256];
+    /// TODO: i just copied this "where" from the compiler error
+    pub fn draw_black(&mut self)
+    where
+        <SmartLeds as smart_leds::SmartLedsWrite>::Color: core::convert::From<smart_leds::RGB<u8>>,
+    {
+        static ALL_BLACK: [RGB8; 256] = [RGB8::new(0, 0, 0); 256];
 
-        self.lights.write(data.iter().cloned()).ok().unwrap();
+        self.leds.write(ALL_BLACK.iter().cloned()).ok().unwrap();
     }
 
-    pub fn draw_test_pattern(&mut self) {
+    pub fn draw_test_pattern(&mut self)
+    where
+        <SmartLeds as smart_leds::SmartLedsWrite>::Color: core::convert::From<smart_leds::RGB<u8>>,
+    {
         let mut data: [RGB8; 256] = [RGB8::default(); 256];
 
-        data[0] = RGB8 {
-            r: 0xFF,
-            g: 0,
-            b: 0,
-        };
-        data[1] = RGB8 {
-            r: 0,
-            g: 0xFF,
-            b: 0,
-        };
-        data[2] = RGB8 {
-            r: 0,
-            g: 0xFF,
-            b: 0,
-        };
-        data[3] = RGB8 {
-            r: 0,
-            g: 0,
-            b: 0xFF,
-        };
-        data[4] = RGB8 {
-            r: 0,
-            g: 0,
-            b: 0xFF,
-        };
-        data[5] = RGB8 {
-            r: 0,
-            g: 0,
-            b: 0xFF,
-        };
-        data[6] = RGB8 {
-            r: 0x80,
-            g: 0x80,
-            b: 0x80,
-        };
-        data[8] = RGB8 {
-            r: 0x80,
-            g: 0x80,
-            b: 0x80,
-        };
-        data[10] = RGB8 {
-            r: 0x80,
-            g: 0x80,
-            b: 0x80,
-        };
-        data[255] = RGB8 {
-            r: 0x80,
-            g: 0x80,
-            b: 0x80,
-        };
+        data[0].r = 0xFF;
+        data[1].g = 0xFF;
+        data[2].g = 0xFF;
+        data[3].b = 0xFF;
+        data[4].b = 0xFF;
+        data[5].b = 0xFF;
+
+        data[6].r = 0x80;
+        data[6].g = 0x80;
+        data[6].b = 0x80;
+
+        data[8].r = 0x80;
+        data[8].g = 0x80;
+        data[8].b = 0x80;
+
+        data[255].r = 0x80;
+        data[255].g = 0x80;
+        data[255].b = 0x80;
 
         // correct colors
         // let data = gamma(data.iter().cloned());
@@ -134,12 +104,15 @@ impl<Spi: spi::FullDuplex<u8>> Lights<Spi> {
         let data = brightness(data.iter().cloned(), 16);
 
         // TODO: do this without cloning?
-        self.lights.write(data).ok().unwrap();
+        self.leds.write(data).ok().unwrap();
     }
 
     /// TODO: return the result instead of unwrapping?
     /// TODO: split this into two functions, one for buffering and one for drawing? (it will need the time that the draw function is expected)
-    pub fn draw(&mut self) {
+    pub fn draw(&mut self)
+    where
+        <SmartLeds as smart_leds::SmartLedsWrite>::Color: core::convert::From<smart_leds::RGB<u8>>,
+    {
         if !self.framerate.ready() {
             return;
         }
@@ -185,6 +158,6 @@ impl<Spi: spi::FullDuplex<u8>> Lights<Spi> {
 
         // display
         // some drivers may need us to disable interrupts, but SPI should work with them
-        self.lights.write(data).ok().unwrap();
+        self.leds.write(data).ok().unwrap();
     }
 }

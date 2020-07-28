@@ -15,6 +15,9 @@ panic-semihosting = { version = "0.5" }
 shared-bus-rtic = "0.2.2"
 smart_compass = { path = "../smart_compass" }
 
+# make sure ws2812 crate uses the same smart-leds-trait crate as smart_compass
+ws2812-spi = "0.3"
+
 [dependencies.stm32f3-discovery]
 path = "../../stm32f3-discovery"
 

@@ -20,6 +20,7 @@ use stm32f3_discovery::cortex_m::asm::delay;
 use stm32f3_discovery::cortex_m_rt;
 use stm32f3_discovery::hal;
 use stm32f3_discovery::leds::Leds as CompassLeds;
+use ws2812_spi::Ws2812;
 
 // TODO: i'm not sure what I did to require an allocator
 #[global_allocator]
@@ -48,7 +49,7 @@ pub type MySpi2 = hal::spi::Spi<
 >;
 
 /// TODO: what should we name this
-type MyLights = lights::Lights<MySpi2>;
+type MyLights = lights::Lights<Ws2812<MySpi2>>;
 
 // TODO: move this into the bin somehow. not everythiing will want USART2
 /// TODO: what should we name this
@@ -334,14 +335,17 @@ const APP: () = {
         let lights_spi: MySpi2 = hal::spi::Spi::spi2(
             device.SPI2,
             (sck2, miso2, mosi2),
-            lights::ws2812_spi::MODE,
+            ws2812_spi::MODE,
             3.mhz(),
             clocks,
             &mut reset_and_clock_control.apb1,
         );
 
-        let my_lights: MyLights =
-            lights::Lights::new(lights_spi, DEFAULT_BRIGHTNESS, FRAMES_PER_SECOND);
+        let my_lights: MyLights = lights::Lights::new(
+            Ws2812::new(lights_spi),
+            DEFAULT_BRIGHTNESS,
+            FRAMES_PER_SECOND,
+        );
 
         // TODO: how often should we do this?
         // check the batterry every minute

@@ -21,6 +21,9 @@ panic-halt = { version = "0.2" }
 shared-bus-rtic = { version = "0.2.2", features = ["thumbv6"] }
 smart_compass = { path = "../smart_compass" }
 
+# make sure ws2812-spi crate uses the same smart-leds-trait crate as smart_compass
+ws2812-spi = "0.3"
+
 # TODO: make sure these match the feather_m0 crate! (or have them export it)
 cortex-m-rt = "0.6"
 usb-device = { version = "*", optional = true }

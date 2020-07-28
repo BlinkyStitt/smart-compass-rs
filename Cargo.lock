@@ -620,7 +620,6 @@ dependencies = [
  "shared-bus-rtic 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "smart-leds 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "time 0.2.16 (git+https://github.com/time-rs/time.git?rev=c49cca20a6ebd72ba403bae331555b7e4a42cb75)",
- "ws2812-spi 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "yanp 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -641,6 +640,7 @@ dependencies = [
  "smart_compass 0.1.0",
  "usb-device 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "usbd-serial 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ws2812-spi 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -657,6 +657,7 @@ dependencies = [
  "shared-bus-rtic 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "smart_compass 0.1.0",
  "stm32f3-discovery 0.4.0",
+ "ws2812-spi 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]

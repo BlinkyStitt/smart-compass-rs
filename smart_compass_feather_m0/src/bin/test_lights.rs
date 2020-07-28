@@ -18,8 +18,9 @@ use numtoa::NumToA;
 use rtic::app;
 use smart_compass::{lights, periodic, ELAPSED_MS};
 use usbd_serial::{SerialPort, USB_CLASS_CDC};
+use ws2812_spi::Ws2812;
 
-// TODO: i'm not sure what I did to require an allocator
+// TODO: do this without allocating (i think its the light test patterns)
 #[global_allocator]
 static ALLOCATOR: CortexMHeap = CortexMHeap::empty();
 
@@ -43,7 +44,7 @@ static mut USB_SERIAL: Option<usbd_serial::SerialPort<hal::UsbBus>> = None;
 #[app(device = hal::pac, peripherals = true)]
 const APP: () = {
     struct Resources {
-        lights: lights::Lights<SPIMaster>,
+        lights: lights::Lights<Ws2812<SPIMaster>>,
         every_200_millis: periodic::Periodic,
         red_led: hal::gpio::Pa17<hal::gpio::Output<hal::gpio::OpenDrain>>,
         timer4: hal::timer::TimerCounter4,
@@ -71,7 +72,10 @@ const APP: () = {
 
                     if let Ok(count) = serial.read(&mut msg_buf) {
                         let mut time_buf = [0u8; 32];
-                        serial.write(ELAPSED_MS.numtoa(10, &mut time_buf)).ok().unwrap();
+                        serial
+                            .write(ELAPSED_MS.numtoa(10, &mut time_buf))
+                            .ok()
+                            .unwrap();
 
                         serial.write(b" - ").ok().unwrap();
 
@@ -156,7 +160,8 @@ const APP: () = {
         let red_led = pins.d13.into_open_drain_output(&mut pins.port);
 
         // external LEDs
-        let my_lights = lights::Lights::new(my_spi, DEFAULT_BRIGHTNESS, FRAMES_PER_SECOND);
+        let my_lights =
+            lights::Lights::new(Ws2812::new(my_spi), DEFAULT_BRIGHTNESS, FRAMES_PER_SECOND);
 
         let every_200_millis = periodic::Periodic::new(200);
 
