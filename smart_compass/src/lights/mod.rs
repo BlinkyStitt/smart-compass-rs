@@ -172,6 +172,8 @@ where
             return;
         }
 
+        // fill the light buffer
+        // TODO: make it possible to call buffer seperate from draw
         self._buffer();
 
         // display

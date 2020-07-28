@@ -12,7 +12,6 @@ use hal::prelude::*;
 use usb_device::prelude::*;
 
 use alloc_cortex_m::CortexMHeap;
-use asm_delay::AsmDelay;
 use core::alloc::Layout;
 use hal::clock::GenericClockController;
 use numtoa::NumToA;
@@ -193,14 +192,13 @@ const APP: () = {
         let my_lights = c.resources.lights;
         let red_led = c.resources.red_led;
 
-        // TODO: put this in LateResources?
-        let mut delay = AsmDelay::new(asm_delay::bitrate::U32BitrateExt::mhz(48));
-
-        delay.delay_ms(200u16);
+        // delay.delay_ms(200u16);
 
         my_lights.draw_black();
 
-        delay.delay_ms(1000u16);
+        // delay.delay_ms(1000u16);
+        // my_lights.draw_test_pattern();
+        // delay.delay_ms(1000u16);
 
         loop {
             if every_200_millis.ready() {
