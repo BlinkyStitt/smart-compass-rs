@@ -70,9 +70,8 @@ const APP: () = {
                     let mut msg_buf = [0u8; 64];
 
                     if let Ok(count) = serial.read(&mut msg_buf) {
-                        // TODO: instead of just echoing, prefix with ELAPSED_MS
                         let mut time_buf = [0u8; 32];
-                        serial.write(ELAPSED_MS.numtoa(10, &mut time_buf));
+                        serial.write(ELAPSED_MS.numtoa(10, &mut time_buf)).ok().unwrap();
 
                         serial.write(b" - ").ok().unwrap();
 
@@ -144,7 +143,7 @@ const APP: () = {
         // the ws2812-spi library says between 2-3.8 or something like that
         let my_spi = hal::spi_master(
             &mut clocks,
-            3.mhz(),
+            3200.khz(),
             device.SERCOM4,
             &mut device.PM,
             pins.sck,
@@ -184,6 +183,8 @@ const APP: () = {
         let red_led = c.resources.red_led;
 
         let mut delay = AsmDelay::new(asm_delay::bitrate::U32BitrateExt::mhz(48));
+
+        delay.delay_ms(200u16);
 
         my_lights.draw_black();
 
