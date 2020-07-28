@@ -38,8 +38,8 @@ pub type SPIMaster = hal::sercom::SPIMaster4<
 // static globals
 // the number of ms to offset our network timer. this is time to send+receive+process+draw
 // static NETWORK_OFFSET: u16 = 125 + 225;
-static DEFAULT_BRIGHTNESS: u8 = 16;
-static FRAMES_PER_SECOND: u8 = 30;
+static DEFAULT_BRIGHTNESS: u8 = 64;
+static FRAMES_PER_SECOND: u8 = 120;
 
 // TODO: use rtic resources once i figure out how to handle the static lifetime
 static mut USB_ALLOCATOR: Option<usb_device::bus::UsbBusAllocator<hal::UsbBus>> = None;
@@ -205,9 +205,9 @@ const APP: () = {
         loop {
             if every_200_millis.ready() {
                 red_led.toggle();
-
-                my_lights.draw_test_pattern();
             }
+
+            my_lights.draw();
         }
     }
 };

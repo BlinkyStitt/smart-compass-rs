@@ -5,6 +5,10 @@ use crate::periodic::Periodic;
 use accelerometer::Orientation;
 use smart_leds::{brightness, gamma, SmartLedsWrite, RGB8};
 
+const NUM_LEDS: usize = 256;
+
+const ALL_BLACK: [RGB8; NUM_LEDS] = [RGB8::new(0, 0, 0); NUM_LEDS];
+
 /// TODO: better trait bounds?
 pub struct Lights<SmartLeds: SmartLedsWrite> {
     brightness: u8,
@@ -13,7 +17,10 @@ pub struct Lights<SmartLeds: SmartLedsWrite> {
     orientation: Orientation,
     last_orientation: Orientation,
 
-    light_data: [RGB8; 256],
+    /// use this counter in your patterns
+    frames_drawn: u32,
+
+    led_buffer: [RGB8; NUM_LEDS],
 }
 
 impl<SmartLeds: SmartLedsWrite> Lights<SmartLeds>
@@ -21,7 +28,7 @@ where
     SmartLeds::Color: core::convert::From<smart_leds::RGB<u8>>,
 {
     pub fn new(leds: SmartLeds, brightness: u8, frames_per_second: u8) -> Self {
-        let light_data: [RGB8; 256] = [RGB8::default(); 256];
+        let light_data: [RGB8; NUM_LEDS] = [RGB8::default(); NUM_LEDS];
 
         let framerate_ms = 1_000 / (frames_per_second as u32);
 
@@ -33,10 +40,11 @@ where
         Self {
             brightness,
             framerate,
+            frames_drawn: 0,
             leds,
             orientation,
             last_orientation,
-            light_data,
+            led_buffer: light_data,
         }
     }
 
@@ -48,26 +56,52 @@ where
         self.orientation = new_orientation;
     }
 
-    pub fn update_flashlight(&mut self, orientation_changed: bool) {
-        todo!();
-    }
+    // fill the buffer with the light data
+    fn _buffer(&mut self) {
+        // TODO: match or something to pick between a bunch of different patterns
+        let orientation_changed = self.last_orientation == self.orientation;
 
-    pub fn update_compass(&mut self, orientation_changed: bool) {
-        todo!();
-    }
+        // TODO: have a Pattern state machine that handles orientation and transitionary animations
+        match self.orientation {
+            Orientation::FaceDown => {
+                // render flashlight
+                todo!("flashlight pattern");
+            }
+            Orientation::FaceUp => {
+                // render compass
+                todo!("compass pattern");
+            }
+            Orientation::PortraitDown => {
+                // render clock
+                todo!("clock pattern");
+            }
+            Orientation::LandscapeUp
+            | Orientation::LandscapeDown
+            | Orientation::PortraitUp
+            | Orientation::Unknown => {
+                // render pretty lights
+                // TODO: lots of different patterns to choose from
+                let j = self.frames_drawn % (NUM_LEDS as u32 * 5);
 
-    pub fn update_clock(&mut self, orientation_changed: bool) {
-        todo!();
-    }
+                for i in 0..NUM_LEDS {
+                    self.led_buffer[i] =
+                        patterns::wheel((((i * 256) as u16 / NUM_LEDS as u16 + j as u16) & 255) as u8);
+                }
+            }
+        };
 
-    pub fn update_pretty_lights(&mut self, orientation_changed: bool) {
-        todo!();
+        if orientation_changed {
+            self.last_orientation = self.orientation;
+        }
     }
 
     #[cfg(feature = "lights_interrupt_free")]
     #[inline]
-    fn write(&mut self, data: &[RGB8]) {
+    fn _draw(&mut self) {
+        let data = self.led_buffer.clone();
+
         // correct the colors
+        // TODO: do we really need cloned here?
         let data = gamma(data.iter().cloned());
 
         // dim the lights
@@ -75,15 +109,18 @@ where
 
         // disable interrupts
         cortex_m::interrupt::free(|_| {
+            // display
             self.leds.write(data).ok().unwrap();
         });
     }
 
     #[cfg(not(feature = "lights_interrupt_free"))]
     #[inline]
-    fn write(&mut self, data: &[RGB8])
-    {
+    fn _draw(&mut self) {
+        let data = self.led_buffer.clone();
+
         // correct the colors
+        // TODO: do we really need cloned here?
         let data = gamma(data.iter().cloned());
 
         // dim the lights
@@ -93,77 +130,54 @@ where
         self.leds.write(data).ok().unwrap();
     }
 
-    /// TODO: i just copied this "where" from the compiler error
+    /// TODO: should this fill the buffer with black, too?
+    /// TODO: I think FastLED had helpers to do this quickly
     pub fn draw_black(&mut self) {
-        static ALL_BLACK: [RGB8; 256] = [RGB8::new(0, 0, 0); 256];
+        self.led_buffer = ALL_BLACK.clone();
 
-        self.write(&ALL_BLACK);
+        self._draw();
     }
 
     pub fn draw_test_pattern(&mut self) {
-        let mut data: [RGB8; 256] = [RGB8::default(); 256];
+        // 1 red
+        self.led_buffer[0].r = 0xFF;
 
-        data[0].r = 0xFF;
-        data[1].g = 0xFF;
-        data[2].g = 0xFF;
-        data[3].b = 0xFF;
-        data[4].b = 0xFF;
-        data[5].b = 0xFF;
+        // 2 green
+        self.led_buffer[1].g = 0xFF;
+        self.led_buffer[2].g = 0xFF;
 
-        data[6].r = 0xFF;
-        data[6].g = 0xFF;
-        data[6].b = 0xFF;
+        // 3 blue
+        self.led_buffer[3].b = 0xFF;
+        self.led_buffer[4].b = 0xFF;
+        self.led_buffer[5].b = 0xFF;
 
-        data[8].r = 0xFF;
-        data[8].g = 0xFF;
-        data[8].b = 0xFF;
+        // 3 white spread out
+        self.led_buffer[6].r = 0xFF;
+        self.led_buffer[6].g = 0xFF;
+        self.led_buffer[6].b = 0xFF;
 
-        data[255].r = 0xFF;
-        data[255].g = 0xFF;
-        data[255].b = 0xFF;
+        self.led_buffer[8].r = 0xFF;
+        self.led_buffer[8].g = 0xFF;
+        self.led_buffer[8].b = 0xFF;
 
-        self.write(&data);
+        self.led_buffer[255].r = 0xFF;
+        self.led_buffer[255].g = 0xFF;
+        self.led_buffer[255].b = 0xFF;
+
+        self._draw();
     }
 
-    /// TODO: return the result instead of unwrapping?
-    /// TODO: split this into two functions, one for buffering and one for drawing? (it will need the time that the draw function is expected)
     pub fn draw(&mut self) {
         if !self.framerate.ready() {
             return;
         }
 
-        let orientation_changed = self.last_orientation == self.orientation;
-
-        match self.orientation {
-            Orientation::FaceDown => {
-                // render flashlight
-                self.update_flashlight(orientation_changed);
-            }
-            Orientation::FaceUp => {
-                // render compass
-                self.update_compass(orientation_changed);
-            }
-            Orientation::PortraitDown => {
-                // render clock
-                self.update_clock(orientation_changed);
-            }
-            Orientation::LandscapeUp
-            | Orientation::LandscapeDown
-            | Orientation::PortraitUp
-            | Orientation::Unknown => {
-                // render pretty lights
-                self.update_pretty_lights(orientation_changed);
-            }
-        };
-
-        if orientation_changed {
-            self.last_orientation = self.orientation;
-        }
-
-        // get the data
-        let data = self.light_data.clone();
+        self._buffer();
 
         // display
-        self.write(&data);
+        self._draw();
+
+        // increment frames_drawn to advance our patterns
+        self.frames_drawn += 1;
     }
 }
