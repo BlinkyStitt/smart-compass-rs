@@ -25,7 +25,9 @@ use ws2812_timer_delay::Ws2812;
 #[global_allocator]
 static ALLOCATOR: CortexMHeap = CortexMHeap::empty();
 
-type MyLights = lights::Lights<Ws2812<hal::timer::TimerCounter3, hal::gpio::Pa20<hal::gpio::Output<hal::gpio::PushPull>>>>;
+type MyLights = lights::Lights<
+    Ws2812<hal::timer::TimerCounter3, hal::gpio::Pa20<hal::gpio::Output<hal::gpio::PushPull>>>,
+>;
 
 pub type SPIMaster = hal::sercom::SPIMaster4<
     hal::sercom::Sercom4Pad0<hal::gpio::Pa12<hal::gpio::PfD>>,
@@ -36,7 +38,7 @@ pub type SPIMaster = hal::sercom::SPIMaster4<
 // static globals
 // the number of ms to offset our network timer. this is time to send+receive+process+draw
 // static NETWORK_OFFSET: u16 = 125 + 225;
-static DEFAULT_BRIGHTNESS: u8 = 128;
+static DEFAULT_BRIGHTNESS: u8 = 16;
 static FRAMES_PER_SECOND: u8 = 30;
 
 // TODO: use rtic resources once i figure out how to handle the static lifetime
@@ -50,14 +52,14 @@ const APP: () = {
         lights: MyLights,
         every_200_millis: periodic::Periodic,
         red_led: hal::gpio::Pa17<hal::gpio::Output<hal::gpio::OpenDrain>>,
-        timer4: hal::timer::TimerCounter4,
+        elapsed_ms_timer: hal::timer::TimerCounter4,
     }
 
     /// Increment ELAPSED_MS every millisecond
     /// The `wait()` call is important because it checks and resets the counter ready for the next period.
-    #[task(binds = TC4, resources = [timer4], priority = 3)]
+    #[task(binds = TC4, resources = [elapsed_ms_timer], priority = 3)]
     fn tc4(c: tc4::Context) {
-        if c.resources.timer4.wait().is_ok() {
+        if c.resources.elapsed_ms_timer.wait().is_ok() {
             unsafe {
                 // TODO: use an rtic resource (atomicUsize?)
                 ELAPSED_MS += 1;
@@ -117,22 +119,22 @@ const APP: () = {
 
         // timer for lights
         // TODO: which timer should we use?
-        let mut timer3 = hal::timer::TimerCounter::tc3_(
+        let mut light_timer = hal::timer::TimerCounter::tc3_(
             &clocks.tcc2_tc3(&gclk0).unwrap(),
             device.TC3,
             &mut device.PM,
         );
-        timer3.start(3.mhz());
+        light_timer.start(3.mhz());
 
         // timer for ELAPSED_MS
         // TODO: which timer should we use?
-        let mut timer4 = hal::timer::TimerCounter::tc4_(
+        let mut elapsed_ms_timer = hal::timer::TimerCounter::tc4_(
             &clocks.tc4_tc5(&gclk0).unwrap(),
             device.TC4,
             &mut device.PM,
         );
-        timer4.start(1000.hz());
-        timer4.enable_interrupt();
+        elapsed_ms_timer.start(1000.hz());
+        elapsed_ms_timer.enable_interrupt();
 
         // setup USB serial for debug logging
         let usb_allocator = unsafe {
@@ -166,7 +168,7 @@ const APP: () = {
         let light_pin = pins.d6.into_push_pull_output(&mut pins.port);
 
         let my_lights: MyLights = lights::Lights::new(
-            Ws2812::new(timer3, light_pin),
+            Ws2812::new(light_timer, light_pin),
             DEFAULT_BRIGHTNESS,
             FRAMES_PER_SECOND,
         );
@@ -177,7 +179,7 @@ const APP: () = {
             every_200_millis,
             lights: my_lights,
             red_led,
-            timer4,
+            elapsed_ms_timer,
         }
     }
 
@@ -191,31 +193,21 @@ const APP: () = {
         let my_lights = c.resources.lights;
         let red_led = c.resources.red_led;
 
+        // TODO: put this in LateResources?
         let mut delay = AsmDelay::new(asm_delay::bitrate::U32BitrateExt::mhz(48));
 
         delay.delay_ms(200u16);
 
-        // TODO: only disable interrupts during the writing?
-        // cortex_m::interrupt::free(|_| {
-            my_lights.draw_black();
-        // });
+        my_lights.draw_black();
 
         delay.delay_ms(1000u16);
-
-        // cortex_m::interrupt::free(|_| {
-            my_lights.draw_test_pattern();
-        // });
 
         loop {
             if every_200_millis.ready() {
                 red_led.toggle();
 
-                // cortex_m::interrupt::free(|_| {
-                    my_lights.draw_test_pattern();
-                // });
+                my_lights.draw_test_pattern();
             }
-
-            delay.delay_ms(100u8);
         }
     }
 };

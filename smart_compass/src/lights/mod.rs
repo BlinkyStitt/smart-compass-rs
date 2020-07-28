@@ -3,8 +3,7 @@ mod patterns;
 
 use crate::periodic::Periodic;
 use accelerometer::Orientation;
-// TODO: use smart_leds::gamma
-use smart_leds::{brightness, SmartLedsWrite, RGB8};
+use smart_leds::{brightness, gamma, SmartLedsWrite, RGB8};
 
 /// TODO: better trait bounds?
 pub struct Lights<SmartLeds: SmartLedsWrite> {
@@ -17,7 +16,10 @@ pub struct Lights<SmartLeds: SmartLedsWrite> {
     light_data: [RGB8; 256],
 }
 
-impl<SmartLeds: SmartLedsWrite> Lights<SmartLeds> {
+impl<SmartLeds: SmartLedsWrite> Lights<SmartLeds>
+where
+    SmartLeds::Color: core::convert::From<smart_leds::RGB<u8>>,
+{
     pub fn new(leds: SmartLeds, brightness: u8, frames_per_second: u8) -> Self {
         let light_data: [RGB8; 256] = [RGB8::default(); 256];
 
@@ -62,22 +64,43 @@ impl<SmartLeds: SmartLedsWrite> Lights<SmartLeds> {
         todo!();
     }
 
-    /// TODO: i just copied this "where" from the compiler error
-    pub fn draw_black(&mut self)
-    where
-        <SmartLeds as smart_leds::SmartLedsWrite>::Color: core::convert::From<smart_leds::RGB<u8>>,
-    {
-        static ALL_BLACK: [RGB8; 256] = [RGB8::new(0, 0, 0); 256];
+    #[cfg(feature = "lights_interrupt_free")]
+    #[inline]
+    fn write(&mut self, data: &[RGB8], brightness_: u8) {
+        // correct the colors
+        let data = gamma(data.iter().cloned());
 
+        // dim the lights
+        let data = brightness(data, brightness_);
+
+        // disable interrupts
         cortex_m::interrupt::free(|_| {
-            self.leds.write(ALL_BLACK.iter().cloned()).ok().unwrap();
+            self.leds.write(data).ok().unwrap();
         });
     }
 
-    pub fn draw_test_pattern(&mut self)
-    where
-        <SmartLeds as smart_leds::SmartLedsWrite>::Color: core::convert::From<smart_leds::RGB<u8>>,
+    #[cfg(not(feature = "lights_interrupt_free"))]
+    #[inline]
+    fn write(&mut self, data: &[RGB8], brightness_: u8)
     {
+        // correct the colors
+        let data = gamma(data.iter().cloned());
+
+        // dim the lights
+        let data = brightness(data, brightness_);
+
+        // display
+        self.leds.write(data).ok().unwrap();
+    }
+
+    /// TODO: i just copied this "where" from the compiler error
+    pub fn draw_black(&mut self) {
+        static ALL_BLACK: [RGB8; 256] = [RGB8::new(0, 0, 0); 256];
+
+        self.write(&ALL_BLACK, 0);
+    }
+
+    pub fn draw_test_pattern(&mut self) {
         let mut data: [RGB8; 256] = [RGB8::default(); 256];
 
         data[0].r = 0xFF;
@@ -87,41 +110,27 @@ impl<SmartLeds: SmartLedsWrite> Lights<SmartLeds> {
         data[4].b = 0xFF;
         data[5].b = 0xFF;
 
-        data[6].r = 0x80;
-        data[6].g = 0x80;
-        data[6].b = 0x80;
+        data[6].r = 0xFF;
+        data[6].g = 0xFF;
+        data[6].b = 0xFF;
 
-        data[8].r = 0x80;
-        data[8].g = 0x80;
-        data[8].b = 0x80;
+        data[8].r = 0xFF;
+        data[8].g = 0xFF;
+        data[8].b = 0xFF;
 
-        data[255].r = 0x80;
-        data[255].g = 0x80;
-        data[255].b = 0x80;
+        data[255].r = 0xFF;
+        data[255].g = 0xFF;
+        data[255].b = 0xFF;
 
-        // correct colors
-        // let data = gamma(data.iter().cloned());
-
-        // dim the lights
-        // TODO: do this without cloning?
-        let data = brightness(data.iter().cloned(), 16);
-
-        cortex_m::interrupt::free(|_| {
-            self.leds.write(data).ok().unwrap();
-        });
+        self.write(&data, self.brightness);
     }
 
     /// TODO: return the result instead of unwrapping?
     /// TODO: split this into two functions, one for buffering and one for drawing? (it will need the time that the draw function is expected)
-    pub fn draw(&mut self)
-    where
-        <SmartLeds as smart_leds::SmartLedsWrite>::Color: core::convert::From<smart_leds::RGB<u8>>,
-    {
+    pub fn draw(&mut self) {
         if !self.framerate.ready() {
             return;
         }
-
-        let my_brightness = self.brightness;
 
         let orientation_changed = self.last_orientation == self.orientation;
 
@@ -152,16 +161,9 @@ impl<SmartLeds: SmartLedsWrite> Lights<SmartLeds> {
         }
 
         // get the data
-        let data = self.light_data;
-
-        // correct colors
-        // let data = gamma(data.iter().cloned());
-
-        // dim the lights
-        let data = brightness(data.iter().cloned(), my_brightness);
+        let data = self.light_data.clone();
 
         // display
-        // some drivers may need us to disable interrupts, but SPI should work with them
-        self.leds.write(data).ok().unwrap();
+        self.write(&data, self.brightness);
     }
 }

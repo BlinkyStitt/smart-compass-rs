@@ -5,6 +5,9 @@ authors = ["Bryan Stitt <bryan@stitthappens.com>"]
 edition = "2018"
 readme = "README.md"
 
+[features]
+lights_interrupt_free = ["cortex-m"]
+
 [dependencies]
 # make sure the board crates (stm32f3, feather_m0, etc.) match this version of accelerometer!
 accelerometer = "0.11"
@@ -12,7 +15,7 @@ accelerometer = "0.11"
 embedded-hal = "*"
 # TODO: i'm not positive that we want this
 # make sure the board crates (stm32f3, feather_m0, etc.) match this version of cortex-m!
-cortex-m = "*"
+cortex-m = { version = "*", optional = true }
 
 asm-delay = "0.9"
 blake2 = { version = "0.9", default-features = false }
