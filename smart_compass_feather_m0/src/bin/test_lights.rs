@@ -104,7 +104,7 @@ const APP: () = {
 
         let mut device = c.device;
 
-        let mut clocks = GenericClockController::with_external_32kosc(
+        let mut clocks = GenericClockController::with_internal_32kosc(
             device.GCLK,
             &mut device.PM,
             &mut device.SYSCTRL,
