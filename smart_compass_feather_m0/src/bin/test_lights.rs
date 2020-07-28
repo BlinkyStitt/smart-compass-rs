@@ -49,10 +49,8 @@ const APP: () = {
         timer4: hal::timer::TimerCounter4,
     }
 
-    /// This function is called each time the tc4 interrupt triggers.
+    /// Increment ELAPSED_MS every millisecond
     /// The `wait()` call is important because it checks and resets the counter ready for the next period.
-    /// TODO: is this how arduino's millis function works?
-    /// TODO: this is firing WAY more often than it is supposed to. what am i doing wrong?
     #[task(binds = TC4, resources = [timer4], priority = 3)]
     fn tc4(c: tc4::Context) {
         if c.resources.timer4.wait().is_ok() {
