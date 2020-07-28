@@ -177,17 +177,26 @@ const APP: () = {
 
     #[idle(resources = [
         every_200_millis,
+        lights,
         red_led,
     ])]
     fn idle(c: idle::Context) -> ! {
         let every_200_millis = c.resources.every_200_millis;
+        let my_lights = c.resources.lights;
         let red_led = c.resources.red_led;
 
         let mut delay = AsmDelay::new(asm_delay::bitrate::U32BitrateExt::mhz(48));
 
+        my_lights.draw_black();
+
+        delay.delay_ms(1000u16);
+
+        my_lights.draw_test_pattern();
+
         loop {
             if every_200_millis.ready() {
                 red_led.toggle();
+                my_lights.draw_test_pattern();
             }
 
             delay.delay_ms(100u8);

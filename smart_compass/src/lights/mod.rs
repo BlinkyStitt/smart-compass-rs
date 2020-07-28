@@ -67,8 +67,14 @@ impl<Spi: spi::FullDuplex<u8>> Lights<Spi> {
         todo!();
     }
 
+    pub fn draw_black(&mut self) {
+        let data: [RGB8; 256] = [RGB8::new(0, 0, 0); 256];
+
+        self.lights.write(data.iter().cloned()).ok().unwrap();
+    }
+
     pub fn draw_test_pattern(&mut self) {
-        let mut data: [RGB8; 6] = [RGB8::default(); 6];
+        let mut data: [RGB8; 256] = [RGB8::default(); 256];
 
         data[0] = RGB8 {
             r: 0xFF,
@@ -101,8 +107,14 @@ impl<Spi: spi::FullDuplex<u8>> Lights<Spi> {
             b: 0xFF,
         };
 
+        // correct colors
+        let data = gamma(data.iter().cloned());
+
+        // dim the lights
+        let data = brightness(data, 16);
+
         // TODO: do this without cloning?
-        self.lights.write(data.iter().cloned()).ok().unwrap();
+        self.lights.write(data).ok().unwrap();
     }
 
     /// TODO: return the result instead of unwrapping?
