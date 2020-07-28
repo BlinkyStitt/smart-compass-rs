@@ -19,11 +19,13 @@ use numtoa::NumToA;
 use rtic::app;
 use smart_compass::{lights, periodic, ELAPSED_MS};
 use usbd_serial::{SerialPort, USB_CLASS_CDC};
-use ws2812_nop_samd21::Ws2812;
+use ws2812_timer_delay::Ws2812;
 
 // TODO: do this without allocating (i think its the light test patterns)
 #[global_allocator]
 static ALLOCATOR: CortexMHeap = CortexMHeap::empty();
+
+type MyLights = lights::Lights<Ws2812<hal::timer::TimerCounter3, hal::gpio::Pa20<hal::gpio::Output<hal::gpio::PushPull>>>>;
 
 pub type SPIMaster = hal::sercom::SPIMaster4<
     hal::sercom::Sercom4Pad0<hal::gpio::Pa12<hal::gpio::PfD>>,
@@ -45,7 +47,7 @@ static mut USB_SERIAL: Option<usbd_serial::SerialPort<hal::UsbBus>> = None;
 #[app(device = hal::pac, peripherals = true)]
 const APP: () = {
     struct Resources {
-        lights: lights::Lights<Ws2812<hal::gpio::Pb10<hal::gpio::Output<hal::gpio::PushPull>>>>,
+        lights: MyLights,
         every_200_millis: periodic::Periodic,
         red_led: hal::gpio::Pa17<hal::gpio::Output<hal::gpio::OpenDrain>>,
         timer4: hal::timer::TimerCounter4,
@@ -113,12 +115,24 @@ const APP: () = {
         let gclk0 = clocks.gclk0();
         let mut pins = hal::Pins::new(device.PORT);
 
+        // timer for lights
+        // TODO: which timer should we use?
+        let mut timer3 = hal::timer::TimerCounter::tc3_(
+            &clocks.tcc2_tc3(&gclk0).unwrap(),
+            device.TC3,
+            &mut device.PM,
+        );
+        timer3.start(3.mhz());
+
+        // timer for ELAPSED_MS
         // TODO: which timer should we use?
         let mut timer4 = hal::timer::TimerCounter::tc4_(
             &clocks.tc4_tc5(&gclk0).unwrap(),
             device.TC4,
             &mut device.PM,
         );
+        timer4.start(1000.hz());
+        timer4.enable_interrupt();
 
         // setup USB serial for debug logging
         let usb_allocator = unsafe {
@@ -149,19 +163,15 @@ const APP: () = {
         let red_led = pins.d13.into_open_drain_output(&mut pins.port);
 
         // external LEDs
-        let light_pin = pins.mosi.into_push_pull_output(&mut pins.port);
+        let light_pin = pins.d6.into_push_pull_output(&mut pins.port);
 
-        let my_lights = lights::Lights::new(
-            Ws2812::new(light_pin),
+        let my_lights: MyLights = lights::Lights::new(
+            Ws2812::new(timer3, light_pin),
             DEFAULT_BRIGHTNESS,
             FRAMES_PER_SECOND,
         );
 
         let every_200_millis = periodic::Periodic::new(200);
-
-        // timer for ELAPSED_MILLIS
-        timer4.start(1000.hz());
-        timer4.enable_interrupt();
 
         init::LateResources {
             every_200_millis,
@@ -185,23 +195,24 @@ const APP: () = {
 
         delay.delay_ms(200u16);
 
-        cortex_m::interrupt::free(|_| {
+        // TODO: only disable interrupts during the writing?
+        // cortex_m::interrupt::free(|_| {
             my_lights.draw_black();
-        });
+        // });
 
         delay.delay_ms(1000u16);
 
-        cortex_m::interrupt::free(|_| {
+        // cortex_m::interrupt::free(|_| {
             my_lights.draw_test_pattern();
-        });
+        // });
 
         loop {
             if every_200_millis.ready() {
                 red_led.toggle();
 
-                cortex_m::interrupt::free(|_| {
+                // cortex_m::interrupt::free(|_| {
                     my_lights.draw_test_pattern();
-                });
+                // });
             }
 
             delay.delay_ms(100u8);

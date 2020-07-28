@@ -10,6 +10,9 @@ readme = "README.md"
 accelerometer = "0.11"
 # make sure the board crates (stm32f3, feather_m0, etc.) match this version of embedded-hal!
 embedded-hal = "*"
+# TODO: i'm not positive that we want this
+# make sure the board crates (stm32f3, feather_m0, etc.) match this version of cortex-m!
+cortex-m = "*"
 
 asm-delay = "0.9"
 blake2 = { version = "0.9", default-features = false }

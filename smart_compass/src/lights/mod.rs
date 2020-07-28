@@ -69,7 +69,9 @@ impl<SmartLeds: SmartLedsWrite> Lights<SmartLeds> {
     {
         static ALL_BLACK: [RGB8; 256] = [RGB8::new(0, 0, 0); 256];
 
-        self.leds.write(ALL_BLACK.iter().cloned()).ok().unwrap();
+        cortex_m::interrupt::free(|_| {
+            self.leds.write(ALL_BLACK.iter().cloned()).ok().unwrap();
+        });
     }
 
     pub fn draw_test_pattern(&mut self)
@@ -101,10 +103,12 @@ impl<SmartLeds: SmartLedsWrite> Lights<SmartLeds> {
         // let data = gamma(data.iter().cloned());
 
         // dim the lights
+        // TODO: do this without cloning?
         let data = brightness(data.iter().cloned(), 16);
 
-        // TODO: do this without cloning?
-        self.leds.write(data).ok().unwrap();
+        cortex_m::interrupt::free(|_| {
+            self.leds.write(data).ok().unwrap();
+        });
     }
 
     /// TODO: return the result instead of unwrapping?
@@ -148,7 +152,7 @@ impl<SmartLeds: SmartLedsWrite> Lights<SmartLeds> {
         }
 
         // get the data
-        let data = &self.light_data;
+        let data = self.light_data;
 
         // correct colors
         // let data = gamma(data.iter().cloned());
