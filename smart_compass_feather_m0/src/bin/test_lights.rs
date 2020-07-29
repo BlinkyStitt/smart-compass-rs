@@ -43,6 +43,45 @@ static DEFAULT_BRIGHTNESS: u8 = 64;
 static FRAMES_PER_SECOND: u8 = 120;
 
 
+/// TODO: think about this more
+fn do_usb_things(
+    usb_device: &mut usb_device::device::UsbDevice<'static, hal::UsbBus>,
+    usb_serial: &mut usbd_serial::SerialPort<'static, hal::UsbBus>,
+    usb_queue_rx: &mut Consumer<'static, u8, U64, u8>,
+) {
+    // TODO: read debug commands from serial
+    usb_device.poll(&mut [usb_serial]);
+
+    let mut msg_buf = [0u8; 64];
+
+    if let Ok(count) = usb_serial.read(&mut msg_buf) {
+        for (i, c) in msg_buf.iter().enumerate() {
+            if i >= count {
+                break;
+            }
+            usb_serial.write(&[*c]).ok().unwrap();
+        }
+    }
+
+    // TODO: this isn't working well
+    if usb_queue_rx.peek().is_some() {
+        let mut time_buf = [0u8; 32];
+
+        let now = unsafe { ELAPSED_MS };
+
+        usb_serial
+            .write(now.numtoa(10, &mut time_buf))
+            .ok()
+            .unwrap();
+
+        usb_serial.write(b" - ").ok().unwrap();
+
+        while let Some(b) = usb_queue_rx.dequeue() {
+            usb_serial.write(&[b]).ok().unwrap();
+        }
+    }
+}
+
 #[app(device = hal::pac, peripherals = true)]
 const APP: () = {
     struct Resources {
@@ -65,6 +104,8 @@ const APP: () = {
                 // TODO: use an rtic resource (atomicUsize?)
                 ELAPSED_MS += 1;
             }
+
+            // do_usb_things();
         }
     }
 
@@ -75,37 +116,7 @@ const APP: () = {
         let usb_serial = c.resources.usb_serial;
         let usb_queue_rx = c.resources.usb_queue_rx;
 
-        // TODO: read debug commands from serial
-        usb_device.poll(&mut [usb_serial]);
-
-        let mut msg_buf = [0u8; 64];
-
-        if let Ok(count) = usb_serial.read(&mut msg_buf) {
-            for (i, c) in msg_buf.iter().enumerate() {
-                if i >= count {
-                    break;
-                }
-                usb_serial.write(&[*c]).ok().unwrap();
-            }
-        }
-
-        // TODO: this isn't working well
-        if usb_queue_rx.peek().is_some() {
-            let mut time_buf = [0u8; 32];
-
-            let now = unsafe { ELAPSED_MS };
-
-            usb_serial
-                .write(now.numtoa(10, &mut time_buf))
-                .ok()
-                .unwrap();
-
-            usb_serial.write(b" - ").ok().unwrap();
-
-            while let Some(b) = usb_queue_rx.dequeue() {
-                usb_serial.write(&[b]).ok().unwrap();
-            }
-        }
+        do_usb_things(usb_device, usb_serial, usb_queue_rx);
     }
 
     /// setup the hardware
@@ -136,7 +147,7 @@ const APP: () = {
         );
         light_timer.start(3.mhz());
 
-        // timer for ELAPSED_MS
+        // 1ms timer for ELAPSED_MS
         // TODO: which timer should we use?
         let mut elapsed_ms_timer = hal::timer::TimerCounter::tc4_(
             &clocks.tc4_tc5(&gclk0).unwrap(),
@@ -145,6 +156,15 @@ const APP: () = {
         );
         elapsed_ms_timer.start(1000.hz());
         elapsed_ms_timer.enable_interrupt();
+
+        // 5ms timer for usb
+        // let mut usb_timer = hal::timer::TimerCounter::tc5_(
+        //     &clocks.tc4_tc5(&gclk0).unwrap(),
+        //     device.TC5,
+        //     &mut device.PM,
+        // );
+        // usb_timer.start(200.hz());
+        // usb_timer.enable_interrupt();
 
         // setup USB serial for debug logging
         // TODO: put these usb things int resources instead of in statics
@@ -200,10 +220,11 @@ const APP: () = {
             lights: my_lights,
             red_led,
             elapsed_ms_timer,
-            usb_serial,
             usb_device,
             usb_queue_tx,
             usb_queue_rx,
+            usb_serial,
+            // usb_timer,
         }
     }
 
