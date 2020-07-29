@@ -19,6 +19,8 @@ use rtic::app;
 use smart_compass::{lights, periodic, ELAPSED_MS};
 use usbd_serial::{SerialPort, USB_CLASS_CDC};
 use ws2812_timer_delay::Ws2812;
+use heapless::spsc::{Consumer, Producer, Queue};
+use heapless::consts::*;
 
 // TODO: do this without allocating (i think its the light test patterns)
 #[global_allocator]
@@ -44,16 +46,18 @@ static FRAMES_PER_SECOND: u8 = 120;
 static mut USB_ALLOCATOR: Option<usb_device::bus::UsbBusAllocator<hal::UsbBus>> = None;
 static mut USB_DEVICE: Option<usb_device::device::UsbDevice<hal::UsbBus>> = None;
 static mut USB_SERIAL: Option<usbd_serial::SerialPort<hal::UsbBus>> = None;
-
+static mut USB_QUEUE: Option<Queue<u8, U64, u8>> = None;
 
 
 #[app(device = hal::pac, peripherals = true)]
 const APP: () = {
     struct Resources {
         lights: MyLights,
+        elapsed_ms_timer: hal::timer::TimerCounter4,
         every_200_millis: periodic::Periodic,
         red_led: hal::gpio::Pa17<hal::gpio::Output<hal::gpio::OpenDrain>>,
-        elapsed_ms_timer: hal::timer::TimerCounter4,
+        usb_queue_tx: Producer<'static, u8, U64, u8>,
+        usb_queue_rx: Consumer<'static, u8, U64, u8>,
     }
 
     /// Increment ELAPSED_MS every millisecond
@@ -68,15 +72,28 @@ const APP: () = {
         }
     }
 
-    #[task(binds = USB, priority = 1)]
-    fn usb(_c: usb::Context) {
+    #[task(binds = USB, priority = 1, resources = [usb_queue_rx])]
+    fn usb(c: usb::Context) {
         unsafe {
             USB_DEVICE.as_mut().map(|device| {
                 USB_SERIAL.as_mut().map(|serial| {
+                    // TODO: read debug commands from serial
                     device.poll(&mut [serial]);
+
                     let mut msg_buf = [0u8; 64];
 
                     if let Ok(count) = serial.read(&mut msg_buf) {
+                        for (i, c) in msg_buf.iter().enumerate() {
+                            if i >= count {
+                                break;
+                            }
+                            serial.write(&[*c]).ok().unwrap();
+                        }
+                    }
+
+                    let usb_queue_rx = c.resources.usb_queue_rx;
+
+                    if usb_queue_rx.peek().is_some() {
                         let mut time_buf = [0u8; 32];
                         serial
                             .write(ELAPSED_MS.numtoa(10, &mut time_buf))
@@ -85,13 +102,11 @@ const APP: () = {
 
                         serial.write(b" - ").ok().unwrap();
 
-                        for (i, c) in msg_buf.iter().enumerate() {
-                            if i >= count {
-                                break;
-                            }
-                            serial.write(&[*c]).ok().unwrap();
+                        while let Some(b) = usb_queue_rx.dequeue() {
+                            serial.write(&[b]).ok().unwrap();
                         }
-                    };
+                    }
+
                     serial
                 });
                 device
@@ -138,6 +153,7 @@ const APP: () = {
         elapsed_ms_timer.enable_interrupt();
 
         // setup USB serial for debug logging
+        // TODO: put these usb things int resources instead of in statics
         let usb_allocator = unsafe {
             USB_ALLOCATOR = Some(hal::usb_allocator(
                 device.USB,
@@ -162,6 +178,15 @@ const APP: () = {
             );
         }
 
+        // static mut USB_QUEUE: Queue<u8, U64, u8> = Queue::u8();
+
+        let usb_queue = unsafe {
+            USB_QUEUE = Some(Queue::u8());
+            USB_QUEUE.as_mut().unwrap()
+        };
+
+        let (usb_queue_tx, usb_queue_rx) = usb_queue.split();
+
         // onboard LED
         let red_led = pins.d13.into_open_drain_output(&mut pins.port);
 
@@ -181,6 +206,8 @@ const APP: () = {
             lights: my_lights,
             red_led,
             elapsed_ms_timer,
+            usb_queue_tx,
+            usb_queue_rx,
         }
     }
 
@@ -188,11 +215,13 @@ const APP: () = {
         every_200_millis,
         lights,
         red_led,
+        usb_queue_tx,
     ])]
     fn idle(c: idle::Context) -> ! {
         let every_200_millis = c.resources.every_200_millis;
         let my_lights = c.resources.lights;
         let red_led = c.resources.red_led;
+        let usb_queue_tx = c.resources.usb_queue_tx;
 
         // delay.delay_ms(200u16);
 
@@ -205,6 +234,9 @@ const APP: () = {
         loop {
             if every_200_millis.ready() {
                 red_led.toggle();
+
+                // TODO: queue for &[u8]?
+                usb_queue_tx.enqueue(b"t"[0]).ok().unwrap();
             }
 
             my_lights.draw();
