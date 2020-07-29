@@ -42,12 +42,6 @@ pub type SPIMaster = hal::sercom::SPIMaster4<
 static DEFAULT_BRIGHTNESS: u8 = 64;
 static FRAMES_PER_SECOND: u8 = 120;
 
-// TODO: use rtic resources once i figure out how to handle the static lifetime
-static mut USB_ALLOCATOR: Option<usb_device::bus::UsbBusAllocator<hal::UsbBus>> = None;
-static mut USB_DEVICE: Option<usb_device::device::UsbDevice<hal::UsbBus>> = None;
-static mut USB_SERIAL: Option<usbd_serial::SerialPort<hal::UsbBus>> = None;
-static mut USB_QUEUE: Option<Queue<u8, U64, u8>> = None;
-
 
 #[app(device = hal::pac, peripherals = true)]
 const APP: () = {
@@ -56,8 +50,10 @@ const APP: () = {
         elapsed_ms_timer: hal::timer::TimerCounter4,
         every_200_millis: periodic::Periodic,
         red_led: hal::gpio::Pa17<hal::gpio::Output<hal::gpio::OpenDrain>>,
+        usb_device: usb_device::device::UsbDevice<'static, hal::UsbBus>,
         usb_queue_tx: Producer<'static, u8, U64, u8>,
         usb_queue_rx: Consumer<'static, u8, U64, u8>,
+        usb_serial: usbd_serial::SerialPort<'static, hal::UsbBus>,
     }
 
     /// Increment ELAPSED_MS every millisecond
@@ -72,46 +68,44 @@ const APP: () = {
         }
     }
 
-    #[task(binds = USB, priority = 1, resources = [usb_queue_rx])]
+    // TODO: i think we need to put this on a timer instead. otherwise our output queue backs up
+    #[task(binds = USB, priority = 1, resources = [usb_device, usb_serial, usb_queue_rx])]
     fn usb(c: usb::Context) {
-        unsafe {
-            USB_DEVICE.as_mut().map(|device| {
-                USB_SERIAL.as_mut().map(|serial| {
-                    // TODO: read debug commands from serial
-                    device.poll(&mut [serial]);
+        let usb_device = c.resources.usb_device;
+        let usb_serial = c.resources.usb_serial;
+        let usb_queue_rx = c.resources.usb_queue_rx;
 
-                    let mut msg_buf = [0u8; 64];
+        // TODO: read debug commands from serial
+        usb_device.poll(&mut [usb_serial]);
 
-                    if let Ok(count) = serial.read(&mut msg_buf) {
-                        for (i, c) in msg_buf.iter().enumerate() {
-                            if i >= count {
-                                break;
-                            }
-                            serial.write(&[*c]).ok().unwrap();
-                        }
-                    }
+        let mut msg_buf = [0u8; 64];
 
-                    let usb_queue_rx = c.resources.usb_queue_rx;
+        if let Ok(count) = usb_serial.read(&mut msg_buf) {
+            for (i, c) in msg_buf.iter().enumerate() {
+                if i >= count {
+                    break;
+                }
+                usb_serial.write(&[*c]).ok().unwrap();
+            }
+        }
 
-                    if usb_queue_rx.peek().is_some() {
-                        let mut time_buf = [0u8; 32];
-                        serial
-                            .write(ELAPSED_MS.numtoa(10, &mut time_buf))
-                            .ok()
-                            .unwrap();
+        // TODO: this isn't working well
+        if usb_queue_rx.peek().is_some() {
+            let mut time_buf = [0u8; 32];
 
-                        serial.write(b" - ").ok().unwrap();
+            let now = unsafe { ELAPSED_MS };
 
-                        while let Some(b) = usb_queue_rx.dequeue() {
-                            serial.write(&[b]).ok().unwrap();
-                        }
-                    }
+            usb_serial
+                .write(now.numtoa(10, &mut time_buf))
+                .ok()
+                .unwrap();
 
-                    serial
-                });
-                device
-            });
-        };
+            usb_serial.write(b" - ").ok().unwrap();
+
+            while let Some(b) = usb_queue_rx.dequeue() {
+                usb_serial.write(&[b]).ok().unwrap();
+            }
+        }
     }
 
     /// setup the hardware
@@ -133,7 +127,7 @@ const APP: () = {
         let gclk0 = clocks.gclk0();
         let mut pins = hal::Pins::new(device.PORT);
 
-        // timer for lights
+        // 3MHz timer for lights
         // TODO: which timer should we use?
         let mut light_timer = hal::timer::TimerCounter::tc3_(
             &clocks.tcc2_tc3(&gclk0).unwrap(),
@@ -155,6 +149,8 @@ const APP: () = {
         // setup USB serial for debug logging
         // TODO: put these usb things int resources instead of in statics
         let usb_allocator = unsafe {
+            static mut USB_ALLOCATOR: Option<usb_device::bus::UsbBusAllocator<hal::UsbBus>> = None;
+
             USB_ALLOCATOR = Some(hal::usb_allocator(
                 device.USB,
                 &mut clocks,
@@ -166,21 +162,19 @@ const APP: () = {
             USB_ALLOCATOR.as_ref().unwrap()
         };
 
-        unsafe {
-            USB_SERIAL = Some(SerialPort::new(&usb_allocator));
-            USB_DEVICE = Some(
-                UsbDeviceBuilder::new(&usb_allocator, UsbVidPid(0x16c0, 0x27dd))
-                    .manufacturer("Fake company")
-                    .product("Serial port")
-                    .serial_number("TEST")
-                    .device_class(USB_CLASS_CDC)
-                    .build(),
-            );
-        }
+        let usb_serial = SerialPort::new(&usb_allocator);
+        let usb_device = UsbDeviceBuilder::new(&usb_allocator, UsbVidPid(0x16c0, 0x27dd))
+            .manufacturer("Fake company")
+            .product("Serial port")
+            .serial_number("TEST")
+            .device_class(USB_CLASS_CDC)
+            .build();
 
         // static mut USB_QUEUE: Queue<u8, U64, u8> = Queue::u8();
 
         let usb_queue = unsafe {
+            static mut USB_QUEUE: Option<Queue<u8, U64, u8>> = None;
+
             USB_QUEUE = Some(Queue::u8());
             USB_QUEUE.as_mut().unwrap()
         };
@@ -206,6 +200,8 @@ const APP: () = {
             lights: my_lights,
             red_led,
             elapsed_ms_timer,
+            usb_serial,
+            usb_device,
             usb_queue_tx,
             usb_queue_rx,
         }
@@ -235,8 +231,9 @@ const APP: () = {
             if every_200_millis.ready() {
                 red_led.toggle();
 
-                // TODO: queue for &[u8]?
-                usb_queue_tx.enqueue(b"t"[0]).ok().unwrap();
+                // TODO: this doesn't actually trigger the usb interrupt! when the queue is full, the program stop
+                // TODO: enqueue for &[u8]?
+                // usb_queue_tx.enqueue(b"t"[0]).ok().unwrap();
             }
 
             my_lights.draw();
