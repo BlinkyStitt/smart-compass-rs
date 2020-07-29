@@ -45,6 +45,8 @@ static mut USB_ALLOCATOR: Option<usb_device::bus::UsbBusAllocator<hal::UsbBus>> 
 static mut USB_DEVICE: Option<usb_device::device::UsbDevice<hal::UsbBus>> = None;
 static mut USB_SERIAL: Option<usbd_serial::SerialPort<hal::UsbBus>> = None;
 
+
+
 #[app(device = hal::pac, peripherals = true)]
 const APP: () = {
     struct Resources {

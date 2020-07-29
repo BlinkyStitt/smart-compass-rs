@@ -7,6 +7,7 @@ use smart_leds::{brightness, gamma, SmartLedsWrite, RGB8};
 
 const NUM_LEDS: usize = 256;
 
+/// TODO: do we need this? seems better to just fill the buffre with black
 const ALL_BLACK: [RGB8; NUM_LEDS] = [RGB8::new(0, 0, 0); NUM_LEDS];
 
 /// TODO: better trait bounds?
@@ -81,11 +82,15 @@ where
             | Orientation::Unknown => {
                 // render pretty lights
                 // TODO: lots of different patterns to choose from
+                // TODO: should this use ELAPSED_MS or frames_drawn?
+                // TODO: why multiply by 5?
+                // TODO: this is flickering all white occasionally
                 let j = self.frames_drawn % (NUM_LEDS as u32 * 5);
 
                 for i in 0..NUM_LEDS {
-                    self.led_buffer[i] =
-                        patterns::wheel((((i * 256) as u16 / NUM_LEDS as u16 + j as u16) & 255) as u8);
+                    self.led_buffer[i] = patterns::wheel(
+                        (((i * 256) as u16 / NUM_LEDS as u16 + j as u16) & 255) as u8,
+                    );
                 }
             }
         };
@@ -167,9 +172,9 @@ where
         self._draw();
     }
 
-    pub fn draw(&mut self) {
+    pub fn draw(&mut self) -> bool {
         if !self.framerate.ready() {
-            return;
+            return false;
         }
 
         // fill the light buffer
@@ -181,5 +186,7 @@ where
 
         // increment frames_drawn to advance our patterns
         self.frames_drawn += 1;
+
+        true
     }
 }
