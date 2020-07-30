@@ -1,3 +1,4 @@
+mod focalintent;
 mod networked;
 mod patterns;
 
@@ -7,9 +8,6 @@ use accelerometer::Orientation;
 use smart_leds::{brightness, gamma, SmartLedsWrite, RGB8};
 
 const NUM_LEDS: usize = 256;
-
-/// TODO: do we need this? seems better to just fill the buffre with black
-const ALL_BLACK: [RGB8; NUM_LEDS] = [RGB8::new(0, 0, 0); NUM_LEDS];
 
 /// TODO: better trait bounds?
 pub struct Lights<SmartLeds: SmartLedsWrite> {
@@ -23,6 +21,8 @@ pub struct Lights<SmartLeds: SmartLedsWrite> {
     frames_drawn: u32,
 
     led_buffer: [RGB8; NUM_LEDS],
+
+    pride: patterns::Pride,
 }
 
 impl<SmartLeds: SmartLedsWrite> Lights<SmartLeds>
@@ -39,14 +39,17 @@ where
         let orientation = Orientation::Unknown;
         let last_orientation = Orientation::Unknown;
 
+        let pride = patterns::Pride::default();
+
         Self {
             brightness,
             framerate,
             frames_drawn: 0,
-            leds,
-            orientation,
             last_orientation,
             led_buffer: light_data,
+            leds,
+            orientation,
+            pride,
         }
     }
 
@@ -83,16 +86,21 @@ where
             | Orientation::Unknown => {
                 // render pretty lights
                 // TODO: lots of different patterns to choose from
-                // TODO: should this use ELAPSED_MS or frames_drawn?
+                /*
+                let now = unsafe { ELAPSED_MS };
+
+                // TODO: how should we scale now?
+                // let j = self.frames_drawn % (NUM_LEDS as u32 * 5);
                 // TODO: why multiply by 5?
-                // TODO: this is flickering all white occasionally
-                let j = self.frames_drawn % (NUM_LEDS as u32 * 5);
+                let j = (now / 3) % (NUM_LEDS as u32 * 5);
 
                 for i in 0..NUM_LEDS {
                     self.led_buffer[i] = patterns::wheel(
                         (((i * 256) as u16 / NUM_LEDS as u16 + j as u16) & 255) as u8,
                     );
                 }
+                */
+                self.pride.draw(&mut self.led_buffer);
             }
         };
 
@@ -145,8 +153,8 @@ where
     /// TODO: should this fill the buffer with black, too?
     /// TODO: I think FastLED had helpers to do this quickly
     pub fn draw_black(&mut self) {
-        self.led_buffer = ALL_BLACK.clone();
-
+        focalintent::fade_to_black_by(&mut self.led_buffer, 255);
+        
         self._draw();
     }
 
