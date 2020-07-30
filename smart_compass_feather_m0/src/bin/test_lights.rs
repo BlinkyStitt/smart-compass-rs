@@ -49,35 +49,46 @@ fn do_usb_things(
     usb_serial: &mut usbd_serial::SerialPort<'static, hal::UsbBus>,
     usb_queue_rx: &mut Consumer<'static, u8, U64, u8>,
 ) {
+    let mut time_buf = [0u8; 32];
+
     // TODO: read debug commands from serial
-    usb_device.poll(&mut [usb_serial]);
+    if usb_device.poll(&mut [usb_serial]) {
+        let mut msg_buf = [0u8; 64];
 
-    let mut msg_buf = [0u8; 64];
+        if let Ok(count) = usb_serial.read(&mut msg_buf) {
+            let now = unsafe { ELAPSED_MS };
 
-    if let Ok(count) = usb_serial.read(&mut msg_buf) {
-        for (i, c) in msg_buf.iter().enumerate() {
-            if i >= count {
-                break;
+            usb_serial
+                .write(now.numtoa(10, &mut time_buf))
+                .ok()
+                .unwrap();
+
+            usb_serial.write(b" - ").ok().unwrap();
+
+            for (i, c) in msg_buf.iter().enumerate() {
+                if i >= count {
+                    break;
+                }
+                // TODO: instead of echoing the command, read the command and take some action based on it
+                usb_serial.write(&[*c]).ok().unwrap();
             }
-            usb_serial.write(&[*c]).ok().unwrap();
         }
     }
 
-    // TODO: this isn't working well
+    // TODO: this isn't working well. if the usb host isn't reading, this seems to get
     if usb_queue_rx.peek().is_some() {
-        let mut time_buf = [0u8; 32];
-
         let now = unsafe { ELAPSED_MS };
 
-        usb_serial
+        if let Ok(_) = usb_serial
             .write(now.numtoa(10, &mut time_buf))
-            .ok()
-            .unwrap();
+        {
+            usb_serial.write(b" - ").ok();
 
-        usb_serial.write(b" - ").ok().unwrap();
+            while let Some(b) = usb_queue_rx.dequeue() {
+                usb_serial.write(&[b]).ok();
+            }
 
-        while let Some(b) = usb_queue_rx.dequeue() {
-            usb_serial.write(&[b]).ok().unwrap();
+            usb_serial.write(b"\n").ok().unwrap();
         }
     }
 }
@@ -97,7 +108,7 @@ const APP: () = {
 
     /// Increment ELAPSED_MS every millisecond
     /// The `wait()` call is important because it checks and resets the counter ready for the next period.
-    #[task(binds = TC4, resources = [elapsed_ms_timer], priority = 3)]
+    #[task(binds = TC4, priority = 3, resources = [elapsed_ms_timer, usb_device, usb_serial, usb_queue_rx])]
     fn tc4(c: tc4::Context) {
         if c.resources.elapsed_ms_timer.wait().is_ok() {
             unsafe {
@@ -105,19 +116,31 @@ const APP: () = {
                 ELAPSED_MS += 1;
             }
 
-            // do_usb_things();
+            let usb_device = c.resources.usb_device;
+            let usb_serial = c.resources.usb_serial;
+            let usb_queue_rx = c.resources.usb_queue_rx;
+    
+            do_usb_things(usb_device, usb_serial, usb_queue_rx);
         }
     }
 
+    /*
     // TODO: i think we need to put this on a timer instead. otherwise our output queue backs up
     #[task(binds = USB, priority = 1, resources = [usb_device, usb_serial, usb_queue_rx])]
     fn usb(c: usb::Context) {
-        let usb_device = c.resources.usb_device;
-        let usb_serial = c.resources.usb_serial;
-        let usb_queue_rx = c.resources.usb_queue_rx;
+        let mut usb_device = c.resources.usb_device;
+        let mut usb_serial = c.resources.usb_serial;
+        let mut usb_queue_rx = c.resources.usb_queue_rx;
 
-        do_usb_things(usb_device, usb_serial, usb_queue_rx);
+        usb_device.lock(|usb_device| {
+            usb_serial.lock(|usb_serial| {
+                usb_queue_rx.lock(|usb_queue_rx| {
+                    do_usb_things(usb_device, usb_serial, usb_queue_rx);
+                })
+            })
+        })
     }
+    */
 
     /// setup the hardware
     #[init]
@@ -254,7 +277,7 @@ const APP: () = {
 
                 // TODO: this doesn't actually trigger the usb interrupt! when the queue is full, the program stop
                 // TODO: enqueue for &[u8]?
-                // usb_queue_tx.enqueue(b"t"[0]).ok().unwrap();
+                usb_queue_tx.enqueue(b"t"[0]).ok().unwrap();
             }
 
             my_lights.draw();
