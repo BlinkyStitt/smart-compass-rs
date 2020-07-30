@@ -15,6 +15,7 @@ arm-none-eabi-objcopy -O binary \
 
 # plug in the feather_m0
 # double press the reset button
+# TODO: do this with stty 
 
 # TODO: we might need an offset - https://users.rust-lang.org/t/getting-started-with-feather-m0-solved/38962/2
 # arduino didn't include an offset though so maybe it is properly detected

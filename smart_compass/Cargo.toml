@@ -26,7 +26,6 @@ numtoa = "0.2"
 radio-sx127x = { path = "../../rust-radio-sx127x", default-features = false }
 serde_cbor = { version = "0.11", default-features = false }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
-shared-bus-rtic = "0.2.2"
 smart-leds = "0.3"
 time = { git = "https://github.com/time-rs/time.git", rev = "c49cca20a6ebd72ba403bae331555b7e4a42cb75", default-features = false }
 yanp = "0.1.1"

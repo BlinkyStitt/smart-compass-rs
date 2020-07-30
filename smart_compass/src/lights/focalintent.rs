@@ -10,6 +10,8 @@
 //!  - http://fastled.io/docs/3.1/group___noise.html
 //!
 //! TODO: "video" dimming like FastLED does?
+//!
+//! TODO: theres a lot of casting between u8, u16, u32, and i16. I'm not sure it is all correct
 use crate::ELAPSED_MS;
 use smart_leds::RGB8;
 
@@ -84,7 +86,7 @@ pub fn beatsin88(bpm88: u16, low: u16, high: u16, time_base: u32, phase_offset: 
     let beat = beat88(bpm88, time_base);
 
     // uint16_t beatsin = (sin16( beat + phase_offset) + 32768);
-    let beat_sin = sin16(beat + phase_offset) + 32768;
+    let beat_sin = (sin16(beat + phase_offset) + 32767 + 1) as u16;
 
     // uint16_t rangewidth = highest - lowest;
     let range_width = high - low;
@@ -97,19 +99,20 @@ pub fn beatsin88(bpm88: u16, low: u16, high: u16, time_base: u32, phase_offset: 
     low + scaledbeat
 }
 
-// TODO: fract should be http://fastled.io/docs/3.1/group__lib8tion.html#ga5d6d013429a5b8a09d564d6137217644
+/// scale a 16-bit unsigned value by a 16-bit value,
+/// considered as numerator of a fraction whose denominator
+/// is 65536. In other words, it computes i * (scale / 65536)
 pub fn scale16(i: u16, scale: u16) -> u16 {
-    // return (((uint16_t)i) * (1+(uint16_t)(scale))) >> 8;
-    i * (1 + scale) >> 8
+    ((i as u32) * (1 + (scale as u32)) / 65536) as u16
 }
 
+/*
 pub fn scale8_video() {
     todo!();
 }
+*/
 
-/// TODO:
-const b_m16_interleave: [u8; 8] = [ 0, 49, 49, 41, 90, 27, 117, 10 ];
-
+/*
 /// Fast 8-bit approximation of sin(x). This approximation never varies more than
 /// 2% from the floating point value you'd get by doing
 ///
@@ -118,6 +121,8 @@ const b_m16_interleave: [u8; 8] = [ 0, 49, 49, 41, 90, 27, 117, 10 ];
 /// @param theta input angle from 0-255
 /// @returns sin of theta, value between 0 and 255
 pub fn sin8(theta: u8) -> u8 {
+    const B_M16_INTERLEAVE: [u8; 8] = [ 0, 49, 49, 41, 90, 27, 117, 10 ];
+
     // uint8_t offset = theta;
     let mut offset = theta;
     // if( theta & 0x40 ) {
@@ -142,10 +147,10 @@ pub fn sin8(theta: u8) -> u8 {
     // const uint8_t* p = b_m16_interleave;
     // p += s2;
     // uint8_t b   =  *p;
-    let b = b_m16_interleave[s2 as usize];
+    let b = B_M16_INTERLEAVE[s2 as usize];
     // p++;
     // uint8_t m16 =  *p;
-    let m16 = b_m16_interleave[(s2 + 1) as usize];
+    let m16 = B_M16_INTERLEAVE[(s2 + 1) as usize];
 
     // uint8_t mx = (m16 * secoffset) >> 4;
     let mx = (m16 * secoffset) >> 4;
@@ -165,14 +170,22 @@ pub fn sin8(theta: u8) -> u8 {
     // return y;
     y
 }
+*/
 
-pub fn sin16(theta: u16) -> u16 {
+/// Fast 16-bit approximation of sin(x). This approximation never varies more than
+/// 0.69% from the floating point value you'd get by doing
+///
+///     float s = sin(x) * 32767.0;
+///
+/// @param theta input angle from 0-65535
+/// @returns sin of theta, value between -32767 to 32767.
+pub fn sin16(theta: u16) -> i16 {
     // static const uint16_t base[] =
     // { 0, 6393, 12539, 18204, 23170, 27245, 30273, 32137 };
-    const base: [u16; 8] = [ 0, 6393, 12539, 18204, 23170, 27245, 30273, 32137 ];
+    const BASE: [u16; 8] = [ 0, 6393, 12539, 18204, 23170, 27245, 30273, 32137 ];
 
     // static const uint8_t slope[] = { 49, 48, 44, 38, 31, 23, 14, 4 };
-    const slope: [u8; 8] = [ 49, 48, 44, 38, 31, 23, 14, 4 ];
+    const SLOPE: [u8; 8] = [ 49, 48, 44, 38, 31, 23, 14, 4 ];
 
     // uint16_t offset = (theta & 0x3FFF) >> 3; // 0..2047
     let mut offset: u16 = (theta & 0x3FFF) >> 3;
@@ -186,9 +199,9 @@ pub fn sin16(theta: u16) -> u16 {
     let section: u8 = (offset / 256) as u8;
 
     // uint16_t b   = base[section];
-    let b: u16 = base[section as usize];
+    let b: u16 = BASE[section as usize];
     // uint8_t  m   = slope[section];
-    let m: u8 = slope[section as usize];
+    let m: u8 = SLOPE[section as usize];
 
     // uint8_t secoffset8 = (uint8_t)(offset) / 2;
     let secoffset8: u8 = (offset as u8) / 2;
@@ -196,11 +209,11 @@ pub fn sin16(theta: u16) -> u16 {
     // uint16_t mx = m * secoffset8;
     let mx: u16 = (m as u16) * (secoffset8 as u16);
     // int16_t  y  = mx + b;
-    let mut y: u16 = mx + b;
+    let mut y: i16 = (mx + b) as i16;
 
     // if( theta & 0x8000 ) y = -y;
     if theta & 0x8000 != 0 {
-        y = 255 - y;
+        y = i16::MAX - y;
     }
 
     // return y;
@@ -227,10 +240,24 @@ pub fn nblend(existing: &mut RGB8, overlay: &RGB8, amount_of_overlay: u8) {
     return;
 }
 
+/*
 pub fn blur1d() {
     todo!();
 }
+*/
 
+/*
 pub fn blur2d() {
     todo!();
+}
+*/
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_sin16() {
+        assert_eq!(sin16(0), 0);
+    }
 }
