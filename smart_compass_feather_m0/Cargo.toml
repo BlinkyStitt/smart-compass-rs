@@ -19,6 +19,7 @@ numtoa = "0.2"
 panic-halt = { version = "0.2" }
 shared-bus-rtic = { version = "0.2.2", features = ["thumbv6"] }
 smart_compass = { path = "../smart_compass", features = ["lights_interrupt_free"] }
+# smart_compass = { path = "../smart_compass" }
 
 # make sure ws2812-timer-delay crate uses the same smart-leds-trait crate as smart_compass
 ws2812-timer-delay = { version = "0.3", features = ["slow"] }

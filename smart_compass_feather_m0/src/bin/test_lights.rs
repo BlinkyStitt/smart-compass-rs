@@ -14,13 +14,13 @@ use usb_device::prelude::*;
 use alloc_cortex_m::CortexMHeap;
 use core::alloc::Layout;
 use hal::clock::GenericClockController;
+use heapless::consts::*;
+use heapless::spsc::{Consumer, Producer, Queue};
 use numtoa::NumToA;
 use rtic::app;
 use smart_compass::{lights, periodic, ELAPSED_MS};
 use usbd_serial::{SerialPort, USB_CLASS_CDC};
 use ws2812_timer_delay::Ws2812;
-use heapless::spsc::{Consumer, Producer, Queue};
-use heapless::consts::*;
 
 // TODO: do this without allocating (i think its the light test patterns)
 #[global_allocator]
@@ -40,14 +40,20 @@ pub type SPIMaster = hal::sercom::SPIMaster4<
 // the number of ms to offset our network timer. this is time to send+receive+process+draw
 // static NETWORK_OFFSET: u16 = 125 + 225;
 static DEFAULT_BRIGHTNESS: u8 = 64;
-static FRAMES_PER_SECOND: u8 = 120;
 
+static FRAMES_PER_SECOND: u8 = 75;
+
+/// Quick and dirty way to log messages
+pub enum LogMessage {
+    RedLedToggle(u32),
+    DrawTime(u32, u32),
+}
 
 /// TODO: think about this more
 fn do_usb_things(
     usb_device: &mut usb_device::device::UsbDevice<'static, hal::UsbBus>,
     usb_serial: &mut usbd_serial::SerialPort<'static, hal::UsbBus>,
-    usb_queue_rx: &mut Consumer<'static, u8, U64, u8>,
+    usb_queue_rx: &mut Consumer<'static, LogMessage, U8, u8>,
 ) {
     let mut time_buf = [0u8; 32];
 
@@ -58,37 +64,43 @@ fn do_usb_things(
         if let Ok(count) = usb_serial.read(&mut msg_buf) {
             let now = unsafe { ELAPSED_MS };
 
-            usb_serial
-                .write(now.numtoa(10, &mut time_buf))
-                .ok()
-                .unwrap();
+            if let Ok(_) = usb_serial.write(now.numtoa(10, &mut time_buf)) {
+                usb_serial.write(b" - ").ok();
 
-            usb_serial.write(b" - ").ok().unwrap();
-
-            for (i, c) in msg_buf.iter().enumerate() {
-                if i >= count {
-                    break;
+                for (i, c) in msg_buf.iter().enumerate() {
+                    if i >= count {
+                        break;
+                    }
+                    // TODO: instead of echoing the command, read the command and take some action based on it
+                    usb_serial.write(&[*c]).ok();
                 }
-                // TODO: instead of echoing the command, read the command and take some action based on it
-                usb_serial.write(&[*c]).ok().unwrap();
+
+                // TODO: newline?
             }
         }
     }
 
-    // TODO: this isn't working well. if the usb host isn't reading, this seems to get
-    if usb_queue_rx.peek().is_some() {
+    // TODO: this could be bettr. if writing gets an error, drain the queeue
+    while let Some(msg) = usb_queue_rx.dequeue() {
         let now = unsafe { ELAPSED_MS };
 
-        if let Ok(_) = usb_serial
-            .write(now.numtoa(10, &mut time_buf))
-        {
+        if let Ok(_) = usb_serial.write(now.numtoa(10, &mut time_buf)) {
             usb_serial.write(b" - ").ok();
 
-            while let Some(b) = usb_queue_rx.dequeue() {
-                usb_serial.write(&[b]).ok();
+            match msg {
+                LogMessage::RedLedToggle(start) => {
+                    usb_serial.write(b"toggle ").ok();
+                    usb_serial.write(start.numtoa(10, &mut time_buf)).ok();
+                }
+                LogMessage::DrawTime(start, time) => {
+                    usb_serial.write(b"draw ").ok();
+                    usb_serial.write(start.numtoa(10, &mut time_buf)).ok();
+                    usb_serial.write(b" ").ok();
+                    usb_serial.write(time.numtoa(10, &mut time_buf)).ok();
+                }
             }
 
-            usb_serial.write(b"\n").ok().unwrap();
+            usb_serial.write(b"\n").ok();
         }
     }
 }
@@ -101,8 +113,8 @@ const APP: () = {
         every_200_millis: periodic::Periodic,
         red_led: hal::gpio::Pa17<hal::gpio::Output<hal::gpio::OpenDrain>>,
         usb_device: usb_device::device::UsbDevice<'static, hal::UsbBus>,
-        usb_queue_tx: Producer<'static, u8, U64, u8>,
-        usb_queue_rx: Consumer<'static, u8, U64, u8>,
+        usb_queue_tx: Producer<'static, LogMessage, U8, u8>,
+        usb_queue_rx: Consumer<'static, LogMessage, U8, u8>,
         usb_serial: usbd_serial::SerialPort<'static, hal::UsbBus>,
     }
 
@@ -119,28 +131,11 @@ const APP: () = {
             let usb_device = c.resources.usb_device;
             let usb_serial = c.resources.usb_serial;
             let usb_queue_rx = c.resources.usb_queue_rx;
-    
+
+            // TODO: i had this in a task(binds = USB), but that only triggers on receive
             do_usb_things(usb_device, usb_serial, usb_queue_rx);
         }
     }
-
-    /*
-    // TODO: i think we need to put this on a timer instead. otherwise our output queue backs up
-    #[task(binds = USB, priority = 1, resources = [usb_device, usb_serial, usb_queue_rx])]
-    fn usb(c: usb::Context) {
-        let mut usb_device = c.resources.usb_device;
-        let mut usb_serial = c.resources.usb_serial;
-        let mut usb_queue_rx = c.resources.usb_queue_rx;
-
-        usb_device.lock(|usb_device| {
-            usb_serial.lock(|usb_serial| {
-                usb_queue_rx.lock(|usb_queue_rx| {
-                    do_usb_things(usb_device, usb_serial, usb_queue_rx);
-                })
-            })
-        })
-    }
-    */
 
     /// setup the hardware
     #[init]
@@ -180,15 +175,6 @@ const APP: () = {
         elapsed_ms_timer.start(1000.hz());
         elapsed_ms_timer.enable_interrupt();
 
-        // 5ms timer for usb
-        // let mut usb_timer = hal::timer::TimerCounter::tc5_(
-        //     &clocks.tc4_tc5(&gclk0).unwrap(),
-        //     device.TC5,
-        //     &mut device.PM,
-        // );
-        // usb_timer.start(200.hz());
-        // usb_timer.enable_interrupt();
-
         // setup USB serial for debug logging
         // TODO: put these usb things int resources instead of in statics
         let usb_allocator = unsafe {
@@ -213,10 +199,8 @@ const APP: () = {
             .device_class(USB_CLASS_CDC)
             .build();
 
-        // static mut USB_QUEUE: Queue<u8, U64, u8> = Queue::u8();
-
         let usb_queue = unsafe {
-            static mut USB_QUEUE: Option<Queue<u8, U64, u8>> = None;
+            static mut USB_QUEUE: Option<Queue<LogMessage, U8, u8>> = None;
 
             USB_QUEUE = Some(Queue::u8());
             USB_QUEUE.as_mut().unwrap()
@@ -247,7 +231,6 @@ const APP: () = {
             usb_queue_tx,
             usb_queue_rx,
             usb_serial,
-            // usb_timer,
         }
     }
 
@@ -263,6 +246,8 @@ const APP: () = {
         let red_led = c.resources.red_led;
         let usb_queue_tx = c.resources.usb_queue_tx;
 
+        // TODO: reset the usb device?
+
         // delay.delay_ms(200u16);
 
         my_lights.draw_black();
@@ -275,12 +260,22 @@ const APP: () = {
             if every_200_millis.ready() {
                 red_led.toggle();
 
-                // TODO: this doesn't actually trigger the usb interrupt! when the queue is full, the program stop
-                // TODO: enqueue for &[u8]?
-                usb_queue_tx.enqueue(b"t"[0]).ok().unwrap();
+                // we enqueue_unchecked because if the usb device isn't attached, we can't log to it
+                let now = unsafe { ELAPSED_MS };
+
+                usb_queue_tx
+                    .enqueue(LogMessage::RedLedToggle(now))
+                    .ok()
+                    .unwrap();
             }
 
-            my_lights.draw();
+            if let Some((start, time)) = my_lights.draw() {
+                // we enqueue_unchecked because if the usb device isn't attached, we can't log to it
+                usb_queue_tx
+                    .enqueue(LogMessage::DrawTime(start, time))
+                    .ok()
+                    .unwrap();
+            }
         }
     }
 };

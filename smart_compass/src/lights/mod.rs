@@ -1,6 +1,7 @@
 mod networked;
 mod patterns;
 
+use crate::ELAPSED_MS;
 use crate::periodic::Periodic;
 use accelerometer::Orientation;
 use smart_leds::{brightness, gamma, SmartLedsWrite, RGB8};
@@ -116,6 +117,12 @@ where
         cortex_m::interrupt::free(|_| {
             // display
             self.leds.write(data).ok().unwrap();
+
+            // TODO: from a quick test, it looks like drawing 256 WS2812 takes 12-13ms
+            // TODO: this should probably be configurable
+            unsafe {
+                ELAPSED_MS += 12;
+            }
         });
     }
 
@@ -172,21 +179,28 @@ where
         self._draw();
     }
 
-    pub fn draw(&mut self) -> bool {
+    pub fn draw(&mut self) -> Option<(u32, u32)> {
         if !self.framerate.ready() {
-            return false;
+            return None;
         }
+
+        // TODO: warn if framerate is too fast for us to keep up. will need to keep track of the last time we drew
+
+        let start = unsafe { ELAPSED_MS.clone() };
 
         // fill the light buffer
         // TODO: make it possible to call buffer seperate from draw
         self._buffer();
 
         // display
+        // TODO! some drivers disable interrupts while they draw! this means we won't have an accurate ELAPSED_MS!
         self._draw();
 
         // increment frames_drawn to advance our patterns
         self.frames_drawn += 1;
 
-        true
+        let time = unsafe { ELAPSED_MS.clone() } - start;
+
+        Some((start, time))
     }
 }
