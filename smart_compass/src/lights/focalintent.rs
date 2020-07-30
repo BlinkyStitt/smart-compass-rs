@@ -175,7 +175,7 @@ pub fn sin8(theta: u8) -> u8 {
 /// Fast 16-bit approximation of sin(x). This approximation never varies more than
 /// 0.69% from the floating point value you'd get by doing
 ///
-///     float s = sin(x) * 32767.0;
+/// "float s = sin(x) * 32767.0;"
 ///
 /// @param theta input angle from 0-65535
 /// @returns sin of theta, value between -32767 to 32767.
@@ -208,12 +208,12 @@ pub fn sin16(theta: u16) -> i16 {
 
     // uint16_t mx = m * secoffset8;
     let mx: u16 = (m as u16) * (secoffset8 as u16);
-    // int16_t  y  = mx + b;
-    let mut y: i16 = (mx + b) as i16;
+    // int16_t y = mx + b;
+    let mut y: i16 = (mx as i16) + (b as i16);
 
     // if( theta & 0x8000 ) y = -y;
     if theta & 0x8000 != 0 {
-        y = i16::MAX - y;
+        y = - y;
     }
 
     // return y;
@@ -257,7 +257,23 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_scale16() {
+        assert_eq!(scale16(0, 0), 0);
+        assert_eq!(scale16(0, u16::MAX), 0);
+        assert_eq!(scale16(64, 32768), 32);
+        assert_eq!(scale16(256, 32768), 128);
+        assert_eq!(scale16(u16::MAX, u16::MAX), u16::MAX);
+    }
+
+    #[test]
     fn test_sin16() {
         assert_eq!(sin16(0), 0);
+        assert_eq!(sin16(9), 0);
+        assert_eq!(sin16(256), 784);
+        assert_eq!(sin16(1024), 3136);
+        assert_eq!(sin16(32761), 0);
+        assert_eq!(sin16(36100), -10233);
+        assert_eq!(sin16(49284), -32613);
+        assert_eq!(sin16(64516), -3087);
     }
 }
