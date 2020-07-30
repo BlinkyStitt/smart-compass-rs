@@ -96,7 +96,6 @@ impl Pride {
 
             let new_color = hsv2rgb(new_color);
 
-            // TODO: use pixelnumber?
             // uint16_t pixelnumber = i;
             // pixelnumber = (num_LEDs - 1) - pixelnumber;
             let pixel_number = FIBONACCI_TO_PHYSICAL[i] as usize;

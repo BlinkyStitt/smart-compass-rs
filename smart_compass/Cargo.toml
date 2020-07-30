@@ -17,7 +17,6 @@ embedded-hal = "*"
 # make sure the board crates (stm32f3, feather_m0, etc.) match this version of cortex-m!
 cortex-m = { version = "*", optional = true }
 
-asm-delay = "0.9"
 blake2 = { version = "0.9", default-features = false }
 embedded-sdmmc = "0.3"
 heapless = "0.5"
