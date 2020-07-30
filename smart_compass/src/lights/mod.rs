@@ -112,7 +112,7 @@ where
     #[cfg(feature = "lights_interrupt_free")]
     #[inline]
     fn _draw(&mut self) {
-        let data = self.led_buffer.clone();
+        let data = self.led_buffer;
 
         // correct the colors
         // TODO: do we really need cloned here?
@@ -194,7 +194,7 @@ where
 
         // TODO: warn if framerate is too fast for us to keep up. will need to keep track of the last time we drew
 
-        let start = unsafe { ELAPSED_MS.clone() };
+        let start = unsafe { ELAPSED_MS };
 
         // fill the light buffer
         // TODO: make it possible to call buffer seperate from draw
@@ -207,7 +207,7 @@ where
         // increment frames_drawn to advance our patterns
         self.frames_drawn += 1;
 
-        let time = unsafe { ELAPSED_MS.clone() } - start;
+        let time = unsafe { ELAPSED_MS } - start;
 
         Some((start, time))
     }

@@ -236,8 +236,6 @@ pub fn nblend(existing: &mut RGB8, overlay: &RGB8, amount_of_overlay: u8) {
     existing.r = blend8(existing.r, overlay.r, amount_of_overlay);
     existing.g = blend8(existing.g, overlay.g, amount_of_overlay);
     existing.b = blend8(existing.b, overlay.b, amount_of_overlay);
-    
-    return;
 }
 
 /*
