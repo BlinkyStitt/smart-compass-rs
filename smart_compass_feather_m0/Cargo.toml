@@ -12,7 +12,6 @@ usb = ["feather_m0/usb", "usb-device", "usbd-serial"]
 [dependencies]
 alloc-cortex-m = "0.4"
 cortex-m-rtic = "0.5"
-cortex-m-semihosting = "0.3.3"
 # TODO: update to feather_m0 to 0.7 once I figure out what changed
 feather_m0 = "0.6"
 heapless = "0.5"
