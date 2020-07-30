@@ -10,12 +10,13 @@ lights_interrupt_free = ["cortex-m"]
 
 [dependencies]
 # make sure the board crates (stm32f3, feather_m0, etc.) match this version of accelerometer!
+# TODO: update to 0.12 once stm32f3discovery crate updates
 accelerometer = "0.11"
 # make sure the board crates (stm32f3, feather_m0, etc.) match this version of embedded-hal!
-embedded-hal = "*"
+embedded-hal = "0.2"
 # TODO: i'm not positive that we want this
 # make sure the board crates (stm32f3, feather_m0, etc.) match this version of cortex-m!
-cortex-m = { version = "*", optional = true }
+cortex-m = { version = "0.6", optional = true }
 
 blake2 = { version = "0.9", default-features = false }
 embedded-sdmmc = "0.3"

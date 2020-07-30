@@ -9,7 +9,6 @@ alloc-cortex-m = "0.4"
 asm-delay = "0.9"
 cortex-m-rtic = "0.5"
 cortex-m-semihosting = "0.3.3"
-feather_m0 = "0.6"
 heapless = "0.5"
 panic-semihosting = { version = "0.5" }
 shared-bus-rtic = "0.2.2"

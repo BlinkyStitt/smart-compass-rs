@@ -163,7 +163,8 @@ const APP: () = {
             device.TC3,
             &mut device.PM,
         );
-        light_timer.start(3.mhz());
+        // TODO: we used to use `.mhz()` here, but that doesn't work after feather_m0 v0.7
+        light_timer.start(3_000_000.hz());
 
         // 1ms timer for ELAPSED_MS
         // TODO: which timer should we use?

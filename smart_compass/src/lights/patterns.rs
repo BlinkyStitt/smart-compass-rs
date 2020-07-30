@@ -69,10 +69,8 @@ impl Pride {
         // uint16_t brightnesstheta16 = sPseudotime;
         let mut brightnesstheta16 = self.pseudotime;
 
-        let num_leds = leds.len();
-
         // for (uint16_t i = 0; i < num_LEDs; i++) {
-        for i in 0..num_leds {
+        for i in FIBONACCI_TO_PHYSICAL.iter().cloned() {
             // hue16 += hueinc16;
             hue16 += hueinc16;
             // uint8_t hue8 = hue16 / 256;
@@ -98,7 +96,7 @@ impl Pride {
 
             // uint16_t pixelnumber = i;
             // pixelnumber = (num_LEDs - 1) - pixelnumber;
-            let pixel_number = FIBONACCI_TO_PHYSICAL[i] as usize;
+            let pixel_number = i as usize;
 
             // nblend(leds[pixelnumber], newcolor, 64);
             nblend(&mut leds[pixel_number], &new_color, 64);
