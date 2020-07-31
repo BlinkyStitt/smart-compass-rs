@@ -63,15 +63,15 @@ pub fn beatsin88(bpm88: u16, low: u16, high: u16, time_base: u32, phase_offset: 
 pub fn blend8(a: u8, b: u8, amount_of_b: u8) -> u8 {
     // uint8_t amountOfA = 255 - amountOfB;
     let amount_of_a = 255 - amount_of_b;
-    
+
     // partial = (a * amountOfA);
     // partial += a;
     let mut partial: u16 = a as u16 * (amount_of_a + 1) as u16;
-    
+
     // partial += (b * amountOfB);
     // partial += b;
     partial += b as u16 * (amount_of_b + 1) as u16;
-    
+
     // result = partial >> 8;
     // return result;
     (partial >> 8) as u8
@@ -218,10 +218,10 @@ pub fn sin8(theta: u8) -> u8 {
 pub fn sin16(theta: u16) -> i16 {
     // static const uint16_t base[] =
     // { 0, 6393, 12539, 18204, 23170, 27245, 30273, 32137 };
-    const BASE: [u16; 8] = [ 0, 6393, 12539, 18204, 23170, 27245, 30273, 32137 ];
+    const BASE: [u16; 8] = [0, 6393, 12539, 18204, 23170, 27245, 30273, 32137];
 
     // static const uint8_t slope[] = { 49, 48, 44, 38, 31, 23, 14, 4 };
-    const SLOPE: [u8; 8] = [ 49, 48, 44, 38, 31, 23, 14, 4 ];
+    const SLOPE: [u8; 8] = [49, 48, 44, 38, 31, 23, 14, 4];
 
     // uint16_t offset = (theta & 0x3FFF) >> 3; // 0..2047
     let mut offset: u16 = (theta & 0x3FFF) >> 3;
@@ -249,7 +249,7 @@ pub fn sin16(theta: u16) -> i16 {
 
     // if( theta & 0x8000 ) y = -y;
     if theta & 0x8000 != 0 {
-        y = - y;
+        y = -y;
     }
 
     // return y;

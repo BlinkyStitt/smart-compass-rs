@@ -1,10 +1,11 @@
+mod clock;
 mod focalintent;
 mod networked;
 mod patterns;
 
-use crate::ELAPSED_MS;
-use crate::periodic::Periodic;
 use self::patterns::Pattern;
+use crate::periodic::Periodic;
+use crate::ELAPSED_MS;
 use accelerometer::Orientation;
 use smart_leds::{brightness, gamma, SmartLedsWrite, RGB8};
 
@@ -24,6 +25,7 @@ pub struct Lights<SmartLeds: SmartLedsWrite> {
     led_buffer: [RGB8; NUM_LEDS],
 
     // TODO: think about this more
+    clock: clock::AnalogClock,
     pride: patterns::Pride,
     wheel: patterns::Wheel,
 }
@@ -44,6 +46,8 @@ where
 
         let pride = patterns::Pride::default();
         let wheel = patterns::Wheel::new();
+        // TODO: how should the clock get the time?
+        let clock = clock::AnalogClock::new(240);
 
         Self {
             brightness,
@@ -53,6 +57,7 @@ where
             led_buffer: light_data,
             leds,
             orientation,
+            clock,
             pride,
             wheel,
         }
@@ -106,6 +111,8 @@ where
                 }
                 */
                 self.wheel.draw(&mut self.led_buffer);
+
+                // self.clock.drawAnalogClock(&mut self.led_buffer, 9.0, 30.0, 0.0);
             }
         };
 
@@ -159,7 +166,7 @@ where
     /// TODO: I think FastLED had helpers to do this quickly
     pub fn draw_black(&mut self) {
         focalintent::fade_to_black_by(&mut self.led_buffer, 255);
-        
+
         self._draw();
     }
 
