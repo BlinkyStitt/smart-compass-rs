@@ -4,6 +4,7 @@ mod patterns;
 
 use crate::ELAPSED_MS;
 use crate::periodic::Periodic;
+use self::patterns::Pattern;
 use accelerometer::Orientation;
 use smart_leds::{brightness, gamma, SmartLedsWrite, RGB8};
 
@@ -22,7 +23,9 @@ pub struct Lights<SmartLeds: SmartLedsWrite> {
 
     led_buffer: [RGB8; NUM_LEDS],
 
+    // TODO: think about this more
     pride: patterns::Pride,
+    wheel: patterns::Wheel,
 }
 
 impl<SmartLeds: SmartLedsWrite> Lights<SmartLeds>
@@ -40,6 +43,7 @@ where
         let last_orientation = Orientation::Unknown;
 
         let pride = patterns::Pride::default();
+        let wheel = patterns::Wheel {};
 
         Self {
             brightness,
@@ -50,6 +54,7 @@ where
             leds,
             orientation,
             pride,
+            wheel,
         }
     }
 
@@ -100,7 +105,7 @@ where
                     );
                 }
                 */
-                self.pride.draw(&mut self.led_buffer);
+                self.wheel.draw(&mut self.led_buffer);
             }
         };
 

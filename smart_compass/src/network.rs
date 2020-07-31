@@ -40,12 +40,15 @@ pub struct Message {
     // TODO: mac of the location message
 }
 
+type MyRadio<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay> = Sx127x<
+    SpiWrapper<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay>,
+    SpiError,
+    PinError,
+>;
+
 pub struct Network<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay> {
-    radio: Sx127x<
-        SpiWrapper<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay>,
-        SpiError,
-        PinError,
-    >,
+    /// TODO: use the radio::Radio trait and do Network<Radio>
+    radio: MyRadio<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay>,
     current_mode: Mode,
     // hasher: VarBlake2s,
     my_peer_id: usize,
