@@ -139,14 +139,14 @@ impl Pattern for Wheel {
         for (i, led) in leds.iter_mut().enumerate() {
             let hue = match self.direction {
                 Direction::In => {
-                    now + (self.pixel_map[i] as u32) / 2
+                    now + (self.pixel_map[i] as u32 * 3) / 7
                 },
                 Direction::Out => {
-                    now - (self.pixel_map[i] as u32) / 2
+                    now - (self.pixel_map[i] as u32 * 3) / 7
                 }
             } as u8;
 
-            let new_color = hsv2rgb(Hsv { hue, sat: 255, val: 255 });
+            let new_color = hsv2rgb(Hsv { hue, sat: 240, val: 255 });
 
             // TODO: is there a better way to do this?
             led.r = new_color.r;
