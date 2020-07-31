@@ -57,10 +57,9 @@ dependencies = [
 
 [[package]]
 name = "atsamd-hal"
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
+version = "0.9.0"
 dependencies = [
- "atsamd21g18a 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "atsamd21g18a 0.7.0",
  "bitfield 0.13.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "cortex-m 0.6.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "embedded-hal 0.2.4 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -74,8 +73,7 @@ dependencies = [
 
 [[package]]
 name = "atsamd21g18a"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
+version = "0.7.0"
 dependencies = [
  "bare-metal 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "cortex-m 0.6.3 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -261,10 +259,10 @@ dependencies = [
 
 [[package]]
 name = "feather_m0"
-version = "0.6.1"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "atsamd-hal 0.8.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "atsamd-hal 0.9.0",
  "cortex-m 0.6.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "cortex-m-rt 0.6.12 (registry+https://github.com/rust-lang/crates.io-index)",
  "embedded-hal 0.2.4 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -687,7 +685,7 @@ dependencies = [
  "alloc-cortex-m 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "cortex-m-rt 0.6.12 (registry+https://github.com/rust-lang/crates.io-index)",
  "cortex-m-rtic 0.5.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "feather_m0 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "feather_m0 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "heapless 0.5.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "numtoa 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "panic-halt 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -914,8 +912,6 @@ dependencies = [
 "checksum as-slice 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)" = "37dfb65bc03b2bc85ee827004f14a6817e04160e3b1a28931986a666a9290e70"
 "checksum asm-delay 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)" = "b9a69a963b70ddacfcd382524f72a4576f359af9334b3bf48a79566590bb8bfa"
 "checksum async-trait 0.1.36 (registry+https://github.com/rust-lang/crates.io-index)" = "a265e3abeffdce30b2e26b7a11b222fe37c6067404001b434101457d0385eb92"
-"checksum atsamd-hal 0.8.2 (registry+https://github.com/rust-lang/crates.io-index)" = "db54e444b4585e7844c4d8459b4af5ef093c42a05ba40eb1cee57c4b5e7bebe8"
-"checksum atsamd21g18a 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)" = "a5486b991ab0012b18f749e0b4bd71d882b4d6134dd58a1c16b571cf2e3d40eb"
 "checksum autocfg 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "f8aac770f1885fd7e387acedd76065302551364496e46b3dd00860b2f8359b9d"
 "checksum bare-metal 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)" = "5deb64efa5bd81e31fcd1938615a6d98c82eafcbcd787162b6f63b91d6bac5b3"
 "checksum bitfield 0.13.2 (registry+https://github.com/rust-lang/crates.io-index)" = "46afbd2983a5d5a7bd740ccb198caf5b82f45c40c09c0eed36052d91cb92e719"
@@ -938,7 +934,7 @@ dependencies = [
 "checksum embedded-hal 0.2.4 (registry+https://github.com/rust-lang/crates.io-index)" = "fa998ce59ec9765d15216393af37a58961ddcefb14c753b4816ba2191d865fcb"
 "checksum embedded-sdmmc 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)" = "6d3bf0a2b5becb87e9a329d9290f131e4d10fec39b56d129926826a7cbea1e7a"
 "checksum embedded-spi 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)" = "b5571fd6dcf36d58537276ea736c97e7358cfad9da9d48fc0a001b302e78933f"
-"checksum feather_m0 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)" = "8e461f4abc1c1438d01d736be2f77128d134a7513b15ee5713d0e9a28fe6ccff"
+"checksum feather_m0 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)" = "6bb6d1e70c677e82feabcade3f3cadbea7e0827f98844223d2bc33bc542b3e79"
 "checksum generic-array 0.11.1 (registry+https://github.com/rust-lang/crates.io-index)" = "8107dafa78c80c848b71b60133954b4a58609a3a1a5f9af037ecc7f67280f369"
 "checksum generic-array 0.12.3 (registry+https://github.com/rust-lang/crates.io-index)" = "c68f0274ae0e023facc3c97b2e00f076be70e254bc851d972503b328db79b2ec"
 "checksum generic-array 0.13.2 (registry+https://github.com/rust-lang/crates.io-index)" = "0ed1e761351b56f54eb9dcd0cfaca9fd0daecf93918e1cfc01c8a3d26ee7adcd"

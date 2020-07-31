@@ -23,7 +23,7 @@ embedded-sdmmc = "0.3"
 heapless = "0.5"
 num = { version = "0.3", default-features = false }
 numtoa = "0.2"
-radio-sx127x = { path = "../../rust-radio-sx127x", default-features = false }
+radio-sx127x = { version = "0.10", default-features = false }
 serde_cbor = { version = "0.11", default-features = false }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 smart-leds = "0.3"

@@ -13,7 +13,7 @@ usb = ["feather_m0/usb", "usb-device", "usbd-serial"]
 alloc-cortex-m = "0.4"
 cortex-m-rtic = "0.5"
 # TODO: update to feather_m0 to 0.7 once I figure out what changed
-feather_m0 = "0.6"
+feather_m0 = "0.7"
 heapless = "0.5"
 numtoa = "0.2"
 panic-halt = { version = "0.2" }
