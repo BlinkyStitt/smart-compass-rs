@@ -107,19 +107,48 @@ impl Pattern for Pride {
     }
 }
 
-pub struct Wheel;
+enum Direction {
+    In,
+    Out,
+}
+
+pub struct Wheel { 
+    // hue: u8,
+    direction: Direction,
+    pixel_map: &'static [u8],
+}
+
+impl Wheel {
+    pub fn new() -> Self {
+        Self {
+            // hue: 0,
+            direction: Direction::Out,
+            pixel_map: &PHYSICAL_TO_FIBONACCI,
+        }
+    }
+}
 
 impl Pattern for Wheel {
+
     /// TODO: fastled did something special for rainbows. do the same here
     fn draw(&mut self, leds: &mut [RGB8]) {
         // divide to slow down the animation.
-        let now = unsafe { ELAPSED_MS } / 13;
+        // TODO: or we could advance by 1 per frame
+        let now = unsafe { ELAPSED_MS } / 30;
 
         for (i, led) in leds.iter_mut().enumerate() {
-            let hue = (now as u8) + (PHYSICAL_TO_FIBONACCI[i] as u8);
+            let hue = match self.direction {
+                Direction::In => {
+                    now + (self.pixel_map[i] as u32) / 2
+                },
+                Direction::Out => {
+                    now - (self.pixel_map[i] as u32) / 2
+                }
+            } as u8;
 
             let new_color = hsv2rgb(Hsv { hue, sat: 255, val: 255 });
 
+            // TODO: is there a better way to do this?
             led.r = new_color.r;
             led.g = new_color.g;
             led.b = new_color.b;

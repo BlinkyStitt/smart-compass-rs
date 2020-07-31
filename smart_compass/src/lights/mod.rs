@@ -43,7 +43,7 @@ where
         let last_orientation = Orientation::Unknown;
 
         let pride = patterns::Pride::default();
-        let wheel = patterns::Wheel {};
+        let wheel = patterns::Wheel::new();
 
         Self {
             brightness,

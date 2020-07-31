@@ -15,46 +15,6 @@
 use crate::ELAPSED_MS;
 use smart_leds::RGB8;
 
-// LIB8STATIC uint8_t blend8( uint8_t a, uint8_t b, uint8_t amountOfB)
-pub fn blend8(a: u8, b: u8, amount_of_b: u8) -> u8 {
-    // uint8_t amountOfA = 255 - amountOfB;
-    let amount_of_a = 255 - amount_of_b;
-    
-    // partial = (a * amountOfA);
-    // partial += a;
-    let mut partial: u16 = a as u16 * (amount_of_a + 1) as u16;
-    
-    // partial += (b * amountOfB);
-    // partial += b;
-    partial += b as u16 * (amount_of_b + 1) as u16;
-    
-    // result = partial >> 8;
-    // return result;
-    (partial >> 8) as u8
-}
-
-// TODO: generic type for leds? Maybe using Iter?
-pub fn fade_to_black_by(leds: &mut [RGB8], amount: u8) {
-    for led in leds.iter_mut() {
-        // TODO: is there a better way to do saturating subtraction for leds?
-        if led.r > amount {
-            led.r -= amount;
-        } else {
-            led.r = 0;
-        }
-        if led.g > amount {
-            led.g -= amount;
-        } else {
-            led.g = 0;
-        }
-        if led.b > amount {
-            led.b -= amount;
-        } else {
-            led.b = 0;
-        }
-    }
-}
-
 /// beat88 generates a 16-bit 'sawtooth' wave at a given BPM,
 /// with BPM specified in Q8.8 fixed-point format; e.g.
 /// for this function, 120 BPM MUST BE specified as
@@ -99,11 +59,80 @@ pub fn beatsin88(bpm88: u16, low: u16, high: u16, time_base: u32, phase_offset: 
     low + scaledbeat
 }
 
-/// scale a 16-bit unsigned value by a 16-bit value,
-/// considered as numerator of a fraction whose denominator
-/// is 65536. In other words, it computes i * (scale / 65536)
-pub fn scale16(i: u16, scale: u16) -> u16 {
-    ((i as u32) * (1 + (scale as u32)) / 65536) as u16
+// LIB8STATIC uint8_t blend8( uint8_t a, uint8_t b, uint8_t amountOfB)
+pub fn blend8(a: u8, b: u8, amount_of_b: u8) -> u8 {
+    // uint8_t amountOfA = 255 - amountOfB;
+    let amount_of_a = 255 - amount_of_b;
+    
+    // partial = (a * amountOfA);
+    // partial += a;
+    let mut partial: u16 = a as u16 * (amount_of_a + 1) as u16;
+    
+    // partial += (b * amountOfB);
+    // partial += b;
+    partial += b as u16 * (amount_of_b + 1) as u16;
+    
+    // result = partial >> 8;
+    // return result;
+    (partial >> 8) as u8
+}
+
+/*
+pub fn blur1d() {
+    todo!();
+}
+*/
+
+/*
+pub fn blur2d() {
+    todo!();
+}
+*/
+
+// TODO: generic type for leds? Maybe using Iter?
+pub fn fade_to_black_by(leds: &mut [RGB8], amount: u8) {
+    for led in leds.iter_mut() {
+        // TODO: is there a better way to do saturating subtraction for leds?
+        if led.r > amount {
+            led.r -= amount;
+        } else {
+            led.r = 0;
+        }
+        if led.g > amount {
+            led.g -= amount;
+        } else {
+            led.g = 0;
+        }
+        if led.b > amount {
+            led.b -= amount;
+        } else {
+            led.b = 0;
+        }
+    }
+}
+
+/*
+pub fn inoise8() {
+    todo!();
+}
+*/
+
+// CRGB& nblend( CRGB& existing, const CRGB& overlay, fract8 amountOfOverlay )
+pub fn nblend(existing: &mut RGB8, overlay: &RGB8, amount_of_overlay: u8) {
+    if amount_of_overlay == 0 {
+        return;
+    }
+
+    if amount_of_overlay == 255 {
+        existing.r = overlay.r;
+        existing.g = overlay.g;
+        existing.b = overlay.b;
+        return;
+    }
+
+    existing.r = blend8(existing.r, overlay.r, amount_of_overlay);
+    existing.g = blend8(existing.g, overlay.g, amount_of_overlay);
+    existing.b = blend8(existing.b, overlay.b, amount_of_overlay);
 }
 
 /*
@@ -111,6 +140,13 @@ pub fn scale8_video() {
     todo!();
 }
 */
+
+/// scale a 16-bit unsigned value by a 16-bit value,
+/// considered as numerator of a fraction whose denominator
+/// is 65536. In other words, it computes i * (scale / 65536)
+pub fn scale16(i: u16, scale: u16) -> u16 {
+    ((i as u32) * (1 + (scale as u32)) / 65536) as u16
+}
 
 /*
 /// Fast 8-bit approximation of sin(x). This approximation never varies more than
@@ -219,36 +255,6 @@ pub fn sin16(theta: u16) -> i16 {
     // return y;
     y
 }
-
-// CRGB& nblend( CRGB& existing, const CRGB& overlay, fract8 amountOfOverlay )
-pub fn nblend(existing: &mut RGB8, overlay: &RGB8, amount_of_overlay: u8) {
-    if amount_of_overlay == 0 {
-        return;
-    }
-
-    if amount_of_overlay == 255 {
-        existing.r = overlay.r;
-        existing.g = overlay.g;
-        existing.b = overlay.b;
-        return;
-    }
-
-    existing.r = blend8(existing.r, overlay.r, amount_of_overlay);
-    existing.g = blend8(existing.g, overlay.g, amount_of_overlay);
-    existing.b = blend8(existing.b, overlay.b, amount_of_overlay);
-}
-
-/*
-pub fn blur1d() {
-    todo!();
-}
-*/
-
-/*
-pub fn blur2d() {
-    todo!();
-}
-*/
 
 #[cfg(test)]
 mod tests {
