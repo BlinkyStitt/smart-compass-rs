@@ -49,16 +49,12 @@ static FRAMES_PER_SECOND: u8 = 50;
 /// Quick and dirty way to log messages
 pub enum LogMessage {
     RedLedToggle(u32),
-    DrawTime(u32, u32),
+    DrawTime(u32, u32, u32),
 }
 
 #[app(device = hal::pac, peripherals = true)]
 const APP: () = {
     struct Resources {
-        #[init(0)]
-        shared: u32,
-
-
         lights: MyLights,
         elapsed_ms: timers::ElapsedMs,
         elapsed_ms_timer: hal::timer::TimerCounter4,
@@ -80,7 +76,7 @@ const APP: () = {
     }
 
     /// Send/receive over USB
-    #[task(binds = USB, priority = 1, resources = [&elapsed_ms, shared, usb_device, usb_serial, usb_queue_rx])]
+    #[task(binds = USB, priority = 1, resources = [&elapsed_ms, usb_device, usb_serial, usb_queue_rx])]
     fn usb(c: usb::Context) {
         let elapsed_ms = c.resources.elapsed_ms;
         let usb_device = c.resources.usb_device;
@@ -126,11 +122,13 @@ const APP: () = {
                         usb_serial.write(b"toggle ").ok();
                         usb_serial.write(start.numtoa(10, &mut time_buf)).ok();
                     }
-                    LogMessage::DrawTime(start, time) => {
-                        usb_serial.write(b"draw ").ok();
+                    LogMessage::DrawTime(start, draw_time, total_time) => {
+                        usb_serial.write(b"draw s").ok();
                         usb_serial.write(start.numtoa(10, &mut time_buf)).ok();
-                        usb_serial.write(b" ").ok();
-                        usb_serial.write(time.numtoa(10, &mut time_buf)).ok();
+                        usb_serial.write(b" d").ok();
+                        usb_serial.write(draw_time.numtoa(10, &mut time_buf)).ok();
+                        usb_serial.write(b" t").ok();
+                        usb_serial.write(total_time.numtoa(10, &mut time_buf)).ok();
                     }
                 }
 
@@ -178,7 +176,7 @@ const APP: () = {
         elapsed_ms_timer.enable_interrupt();
 
         // TODO: i can't figure out how to use rtic resources for this
-        let elapsed_ms = timers::ElapsedMs::default();
+        let elapsed_ms = timers::ElapsedMs;
 
         // setup USB serial for debug logging
         // TODO: put these usb things int resources instead of in statics
@@ -247,7 +245,6 @@ const APP: () = {
         every_200_millis,
         lights,
         red_led,
-        shared,
         usb_queue_tx,
     ])]
     fn idle(c: idle::Context) -> ! {
@@ -279,9 +276,9 @@ const APP: () = {
                 rtic::pend(hal::pac::Interrupt::USB);
             }
 
-            if let Some((start, time)) = my_lights.draw(elapsed_ms) {
+            if let Some((start, draw_time, total_time)) = my_lights.draw(elapsed_ms) {
                 usb_queue_tx
-                    .enqueue(LogMessage::DrawTime(start, time))
+                    .enqueue(LogMessage::DrawTime(start, draw_time, total_time))
                     .ok()
                     .unwrap();
 

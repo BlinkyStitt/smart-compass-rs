@@ -16,9 +16,6 @@ pub struct Lights<SmartLeds: SmartLedsWrite> {
     orientation: Orientation,
     last_orientation: Orientation,
 
-    /// use this counter in your patterns
-    frames_drawn: u32,
-
     led_buffer: [RGB8; NUM_LEDS],
 
     // TODO: think about this more
@@ -54,7 +51,6 @@ where
         Self {
             brightness,
             framerate,
-            frames_drawn: 0,
             last_orientation,
             led_buffer: light_data,
             leds,
@@ -126,7 +122,7 @@ where
 
     #[cfg(feature = "lights_interrupt_free")]
     #[inline(always)]
-    fn _draw(&mut self, elapsed_ms: &ElapsedMs) {
+    fn _draw(&mut self, elapsed_ms: &ElapsedMs) -> u32{
         let data = self.led_buffer;
 
         // correct the colors
@@ -136,21 +132,24 @@ where
         // dim the lights
         let data = brightness(data, self.brightness);
 
+        let start = elapsed_ms.now();
+
         // disable interrupts
         cortex_m::interrupt::free(|_| {
             // display
             self.leds.write(data).ok().unwrap();
 
             // TODO: from a quick test, it looks like drawing 256 WS2812 takes 12-13ms
-            // TODO: but then i refactored some things and now its 18-19ms
             // TODO: this should probably be configurable
-            elapsed_ms.increment_by(18);
+            elapsed_ms.increment_by(10);
         });
+        
+        elapsed_ms.now() - start
     }
 
     #[cfg(not(feature = "lights_interrupt_free"))]
     #[inline(always)]
-    fn _draw(&mut self, _elapsed_ms: &ElapsedMs) {
+    fn _draw(&mut self, elapsed_ms: &ElapsedMs) -> u32 {
         let data = self.led_buffer.clone();
 
         // correct the colors
@@ -160,8 +159,12 @@ where
         // dim the lights
         let data = brightness(data, self.brightness);
 
+        let start = elapsed_ms.now();
+
         // display
         self.leds.write(data).ok().unwrap();
+
+        elapsed_ms.now() - start
     }
 
     /// TODO: should this fill the buffer with black, too?
@@ -201,7 +204,7 @@ where
         self._draw(elapsed_ms);
     }
 
-    pub fn draw(&mut self, elapsed_ms: &ElapsedMs) -> Option<(u32, u32)> {
+    pub fn draw(&mut self, elapsed_ms: &ElapsedMs) -> Option<(u32, u32, u32)> {
         let start = self.framerate.ready(elapsed_ms).ok()?;
 
         // TODO: warn if framerate is too fast for us to keep up. will need to keep track of the last time we drew
@@ -212,13 +215,12 @@ where
 
         // display
         // TODO! some drivers disable interrupts while they draw! this means we won't have an accurate ELAPSED_MS!
-        self._draw(elapsed_ms);
+        let draw_time = self._draw(elapsed_ms);
 
-        // increment frames_drawn to advance our patterns
-        self.frames_drawn += 1;
+        let total_time = elapsed_ms.now() - start;
 
-        let time = elapsed_ms.now() - start;
+        // TODO: calculate actual framerate
 
-        Some((start, time))
+        Some((start, draw_time, total_time))
     }
 }

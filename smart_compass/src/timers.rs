@@ -3,10 +3,13 @@ use core::convert::Infallible;
 use core::sync::atomic::{AtomicU32, Ordering};
 use nb::block;
 
+/// TODO: do this without a global
+static mut ELAPSED_MS: u32 = 0;
+
 /// Keep track of the milliseconds since boot.
+/// TODO: this is really just a counterr. we just happen to be incrementing it every 1ms here
 /// TODO: function for setting this to a specific amount. We can use the oldest ELAPSED_MS on the network
-#[derive(Default)]
-pub struct ElapsedMs(AtomicU32);
+pub struct ElapsedMs;
 
 impl ElapsedMs {
     /// Block for some milliseconds.
@@ -24,30 +27,21 @@ impl ElapsedMs {
     }
 
     /// Increment the time by a configurable amount.
-    /// thumbv6 doesn't have fetch_add
     /// This shuold probably be called if you ever disable interrupts.
-    /// TODO: `cfg(target = thumb6?)`
+    /// TODO: think more about doing this safely
     #[inline(always)]
-    #[cfg(feature = "thumbv6")]
     pub fn increment_by(&self, by: u32) {
-        cortex_m::interrupt::free(|_cs| {
-            let x = self.0.load(Ordering::Relaxed);
-            self.0.store(x + by, Ordering::Relaxed);
-        });
-    }
-
-    /// Increment the time by a configurable amount.
-    /// This shuold probably be called if you ever disable interrupts.
-    #[inline(always)]
-    #[cfg(not(feature = "thumbv6"))]
-    pub fn increment_by(&self, by: u32) {
-        self.0.fetch_add(by, Ordering::Relaxed);
+        unsafe {
+            ELAPSED_MS += by;
+        }
     }
 
     /// Load the current time in milliseconds since boot
     #[inline(always)]
     pub fn now(&self) -> u32 {
-        self.0.load(Ordering::Relaxed)
+        unsafe {
+            ELAPSED_MS
+        }
     }
 }
 

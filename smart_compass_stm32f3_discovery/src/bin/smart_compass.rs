@@ -186,7 +186,7 @@ const APP: () = {
         elapsed_ms_timer.listen(hal::timer::Event::Update);
 
         // TODO: i wanted a more complex type on this, but i started having troubles with lifetimes
-        let elapsed_ms = timers::ElapsedMs::default();
+        let elapsed_ms = timers::ElapsedMs;
 
         // TODO: shared-bus for the i2c?
         // new lsm303 driver uses continuous mode, so no need wait for interrupts on DRDY
