@@ -39,9 +39,12 @@ pub type SPIMaster = hal::sercom::SPIMaster4<
 // static globals
 // the number of ms to offset our network timer. this is time to send+receive+process+draw
 // static NETWORK_OFFSET: u16 = 125 + 225;
+
+/// 255 is BLINDINGLY bright!
 static DEFAULT_BRIGHTNESS: u8 = 64;
 
-static FRAMES_PER_SECOND: u8 = 75;
+/// TODO: tune this
+static FRAMES_PER_SECOND: u8 = 50;
 
 /// Quick and dirty way to log messages
 pub enum LogMessage {
@@ -49,66 +52,13 @@ pub enum LogMessage {
     DrawTime(u32, u32),
 }
 
-/// TODO: think about this more
-fn do_usb_things(
-    elapsed_ms: &timers::ElapsedMs,
-    usb_device: &mut usb_device::device::UsbDevice<'static, hal::UsbBus>,
-    usb_serial: &mut usbd_serial::SerialPort<'static, hal::UsbBus>,
-    usb_queue_rx: &mut Consumer<'static, LogMessage, U8, u8>,
-) {
-    let mut time_buf = [0u8; 32];
-
-    // TODO: read debug commands from serial
-    if usb_device.poll(&mut [usb_serial]) {
-        let mut msg_buf = [0u8; 64];
-
-        if let Ok(count) = usb_serial.read(&mut msg_buf) {
-            let now = elapsed_ms.now();
-
-            if let Ok(_) = usb_serial.write(now.numtoa(10, &mut time_buf)) {
-                usb_serial.write(b" - ").ok();
-
-                for (i, c) in msg_buf.iter().enumerate() {
-                    if i >= count {
-                        break;
-                    }
-                    // TODO: instead of echoing the command, read the command and take some action based on it
-                    usb_serial.write(&[*c]).ok();
-                }
-
-                // TODO: newline?
-            }
-        }
-    }
-
-    // TODO: this could be bettr. if writing gets an error, drain the queeue
-    while let Some(msg) = usb_queue_rx.dequeue() {
-        let now = elapsed_ms.now();
-
-        if let Ok(_) = usb_serial.write(now.numtoa(10, &mut time_buf)) {
-            usb_serial.write(b" - ").ok();
-
-            match msg {
-                LogMessage::RedLedToggle(start) => {
-                    usb_serial.write(b"toggle ").ok();
-                    usb_serial.write(start.numtoa(10, &mut time_buf)).ok();
-                }
-                LogMessage::DrawTime(start, time) => {
-                    usb_serial.write(b"draw ").ok();
-                    usb_serial.write(start.numtoa(10, &mut time_buf)).ok();
-                    usb_serial.write(b" ").ok();
-                    usb_serial.write(time.numtoa(10, &mut time_buf)).ok();
-                }
-            }
-
-            usb_serial.write(b"\n").ok();
-        }
-    }
-}
-
 #[app(device = hal::pac, peripherals = true)]
 const APP: () = {
     struct Resources {
+        #[init(0)]
+        shared: u32,
+
+
         lights: MyLights,
         elapsed_ms: timers::ElapsedMs,
         elapsed_ms_timer: hal::timer::TimerCounter4,
@@ -122,20 +72,70 @@ const APP: () = {
 
     /// Increment ELAPSED_MS every millisecond
     /// The `wait()` call is important because it checks and resets the counter ready for the next period.
-    #[task(binds = TC4, priority = 3, resources = [&elapsed_ms, elapsed_ms_timer, usb_device, usb_serial, usb_queue_rx])]
+    #[task(binds = TC4, priority = 3, resources = [&elapsed_ms, elapsed_ms_timer])]
     fn tc4(c: tc4::Context) {
         if c.resources.elapsed_ms_timer.wait().is_ok() {
-            let elapsed_ms = c.resources.elapsed_ms;
+            c.resources.elapsed_ms.increment();
+        }
+    }
 
-            elapsed_ms.increment();
+    /// Send/receive over USB
+    #[task(binds = USB, priority = 1, resources = [&elapsed_ms, shared, usb_device, usb_serial, usb_queue_rx])]
+    fn usb(c: usb::Context) {
+        let elapsed_ms = c.resources.elapsed_ms;
+        let usb_device = c.resources.usb_device;
+        let usb_serial = c.resources.usb_serial;
+        let usb_queue_rx = c.resources.usb_queue_rx;
 
-            // TODO: get rid of these
-            let usb_device = c.resources.usb_device;
-            let usb_serial = c.resources.usb_serial;
-            let usb_queue_rx = c.resources.usb_queue_rx;
+        let mut time_buf = [0u8; 32];
 
-            // TODO: i had this in a task(binds = USB), but that only triggers on receive
-            do_usb_things(elapsed_ms, usb_device, usb_serial, usb_queue_rx);
+        // echo input prefixed with the elapsed_ms
+        // TODO: receive debug commands from serial
+        if usb_device.poll(&mut [usb_serial]) {
+            let mut msg_buf = [0u8; 64];
+
+            if let Ok(count) = usb_serial.read(&mut msg_buf) {
+                let now = elapsed_ms.now();
+
+                if let Ok(_) = usb_serial.write(now.numtoa(10, &mut time_buf)) {
+                    usb_serial.write(b" - ").ok();
+
+                    for (i, c) in msg_buf.iter().enumerate() {
+                        if i >= count {
+                            break;
+                        }
+                        // TODO: instead of echoing the command, read the command and take some action based on it
+                        usb_serial.write(&[*c]).ok();
+                    }
+
+                    // TODO: newline? it seems like the input always ends in one already
+                }
+            }
+        }
+
+        // send log messages
+        // TODO: this could be better
+        while let Some(msg) = usb_queue_rx.dequeue() {
+            let now = elapsed_ms.now();
+
+            if let Ok(_) = usb_serial.write(now.numtoa(10, &mut time_buf)) {
+                usb_serial.write(b" - ").ok();
+
+                match msg {
+                    LogMessage::RedLedToggle(start) => {
+                        usb_serial.write(b"toggle ").ok();
+                        usb_serial.write(start.numtoa(10, &mut time_buf)).ok();
+                    }
+                    LogMessage::DrawTime(start, time) => {
+                        usb_serial.write(b"draw ").ok();
+                        usb_serial.write(start.numtoa(10, &mut time_buf)).ok();
+                        usb_serial.write(b" ").ok();
+                        usb_serial.write(time.numtoa(10, &mut time_buf)).ok();
+                    }
+                }
+
+                usb_serial.write(b"\n").ok();
+            }
         }
     }
 
@@ -222,10 +222,11 @@ const APP: () = {
         let my_lights: MyLights = lights::Lights::new(
             Ws2812::new(light_timer, light_pin),
             DEFAULT_BRIGHTNESS,
+            &elapsed_ms,
             FRAMES_PER_SECOND,
         );
 
-        let every_200_millis = timers::EveryNMillis::new(200);
+        let every_200_millis = timers::EveryNMillis::new(&elapsed_ms, 200);
 
         init::LateResources {
             every_200_millis,
@@ -240,11 +241,13 @@ const APP: () = {
         }
     }
 
+    /// Do the thing
     #[idle(resources = [
         &elapsed_ms,
         every_200_millis,
         lights,
         red_led,
+        shared,
         usb_queue_tx,
     ])]
     fn idle(c: idle::Context) -> ! {
@@ -256,14 +259,11 @@ const APP: () = {
 
         // TODO: reset the usb device?
 
-        // delay.delay_ms(200u16);
-
-        // TODO: why does this need the lock? i thought atomic would mean it wouldn't
         my_lights.draw_black(elapsed_ms);
+        elapsed_ms.block(200);
 
-        // delay.delay_ms(1000u16);
-        // my_lights.draw_test_pattern();
-        // delay.delay_ms(1000u16);
+        my_lights.draw_test_pattern(elapsed_ms);
+        elapsed_ms.block(1000);
 
         loop {
             if let Ok(now) = every_200_millis.ready(elapsed_ms) {
@@ -276,7 +276,6 @@ const APP: () = {
                     .ok()
                     .unwrap();
 
-                // TODO: test this
                 rtic::pend(hal::pac::Interrupt::USB);
             }
 
@@ -286,13 +285,14 @@ const APP: () = {
                     .ok()
                     .unwrap();
 
-                // TODO: test this. i think doing this means we can drop doing usb check inside the millis interrupt
+                // TODO: spawn a task to do the drawing?
                 rtic::pend(hal::pac::Interrupt::USB);
             }
         }
     }
 };
 
+/// Out of memory!
 #[alloc_error_handler]
 fn oom(_: Layout) -> ! {
     loop {}

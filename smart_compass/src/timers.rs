@@ -11,7 +11,7 @@ pub struct ElapsedMs(AtomicU32);
 impl ElapsedMs {
     /// Block for some milliseconds.
     pub fn block(&self, millis: u32) {
-        let mut until = EveryNMillis::new(millis);
+        let mut until = EveryNMillis::new(self, millis);
 
         until.block(self);
     }
@@ -60,9 +60,11 @@ pub struct EveryNMillis {
 }
 
 impl EveryNMillis {
-    pub fn new(period_ms: u32) -> Self {
+    pub fn new(elapsed_ms: &ElapsedMs, period_ms: u32) -> Self {
+        let now = elapsed_ms.now();
+
         Self {
-            next_trigger: 0,
+            next_trigger: now + period_ms,
             period_ms,
         }
     }

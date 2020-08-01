@@ -31,12 +31,17 @@ impl<SmartLeds: SmartLedsWrite> Lights<SmartLeds>
 where
     SmartLeds::Color: core::convert::From<smart_leds::RGB<u8>>,
 {
-    pub fn new(leds: SmartLeds, brightness: u8, frames_per_second: u8) -> Self {
+    pub fn new(
+        leds: SmartLeds,
+        brightness: u8,
+        elapsed_ms: &ElapsedMs,
+        frames_per_second: u8,
+    ) -> Self {
         let light_data: [RGB8; NUM_LEDS] = [RGB8::default(); NUM_LEDS];
 
         let framerate_ms = 1_000 / (frames_per_second as u32);
 
-        let framerate = EveryNMillis::new(framerate_ms);
+        let framerate = EveryNMillis::new(elapsed_ms, framerate_ms);
 
         let orientation = Orientation::Unknown;
         let last_orientation = Orientation::Unknown;
@@ -137,8 +142,9 @@ where
             self.leds.write(data).ok().unwrap();
 
             // TODO: from a quick test, it looks like drawing 256 WS2812 takes 12-13ms
+            // TODO: but then i refactored some things and now its 18-19ms
             // TODO: this should probably be configurable
-            elapsed_ms.increment_by(12);
+            elapsed_ms.increment_by(18);
         });
     }
 

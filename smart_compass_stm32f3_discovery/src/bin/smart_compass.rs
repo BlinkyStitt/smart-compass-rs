@@ -348,6 +348,7 @@ const APP: () = {
         let my_lights: MyLights = lights::Lights::new(
             Ws2812::new(lights_spi),
             DEFAULT_BRIGHTNESS,
+            &elapsed_ms,
             FRAMES_PER_SECOND,
         );
 
@@ -357,6 +358,7 @@ const APP: () = {
             gpioc
                 .pc8
                 .into_pull_down_input(&mut gpioc.moder, &mut gpioc.pupdr),
+            &elapsed_ms,
             60_000,
         );
 
