@@ -106,13 +106,11 @@ fn do_usb_things(
     }
 }
 
-/// TODO: figure out how to properly use rtic resources
-static mut ELAPSED_MS: Option<timers::ElapsedMs> = None;
-
 #[app(device = hal::pac, peripherals = true)]
 const APP: () = {
     struct Resources {
         lights: MyLights,
+        elapsed_ms: timers::ElapsedMs,
         elapsed_ms_timer: hal::timer::TimerCounter4,
         every_200_millis: timers::EveryNMillis,
         red_led: hal::gpio::Pa17<hal::gpio::Output<hal::gpio::OpenDrain>>,
@@ -124,10 +122,10 @@ const APP: () = {
 
     /// Increment ELAPSED_MS every millisecond
     /// The `wait()` call is important because it checks and resets the counter ready for the next period.
-    #[task(binds = TC4, priority = 3, resources = [elapsed_ms_timer, usb_device, usb_serial, usb_queue_rx])]
+    #[task(binds = TC4, priority = 3, resources = [&elapsed_ms, elapsed_ms_timer, usb_device, usb_serial, usb_queue_rx])]
     fn tc4(c: tc4::Context) {
         if c.resources.elapsed_ms_timer.wait().is_ok() {
-            let elapsed_ms = unsafe { ELAPSED_MS.as_ref().unwrap() };
+            let elapsed_ms = c.resources.elapsed_ms;
 
             elapsed_ms.increment();
 
@@ -180,9 +178,7 @@ const APP: () = {
         elapsed_ms_timer.enable_interrupt();
 
         // TODO: i can't figure out how to use rtic resources for this
-        unsafe {
-            ELAPSED_MS = Some(timers::ElapsedMs::default());
-        }
+        let elapsed_ms = timers::ElapsedMs::default();
 
         // setup USB serial for debug logging
         // TODO: put these usb things int resources instead of in statics
@@ -235,6 +231,7 @@ const APP: () = {
             every_200_millis,
             lights: my_lights,
             red_led,
+            elapsed_ms,
             elapsed_ms_timer,
             usb_device,
             usb_queue_tx,
@@ -244,18 +241,18 @@ const APP: () = {
     }
 
     #[idle(resources = [
+        &elapsed_ms,
         every_200_millis,
         lights,
         red_led,
         usb_queue_tx,
     ])]
     fn idle(c: idle::Context) -> ! {
+        let elapsed_ms = c.resources.elapsed_ms;
         let every_200_millis = c.resources.every_200_millis;
         let my_lights = c.resources.lights;
         let red_led = c.resources.red_led;
         let usb_queue_tx = c.resources.usb_queue_tx;
-
-        let elapsed_ms = unsafe { ELAPSED_MS.as_ref().unwrap() };
 
         // TODO: reset the usb device?
 
