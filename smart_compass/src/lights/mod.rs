@@ -126,7 +126,7 @@ where
     }
 
     #[cfg(feature = "lights_interrupt_free")]
-    #[inline]
+    #[inline(always)]
     fn _draw(&mut self) {
         let data = self.led_buffer;
 
@@ -149,7 +149,7 @@ where
     }
 
     #[cfg(not(feature = "lights_interrupt_free"))]
-    #[inline]
+    #[inline(always)]
     fn _draw(&mut self) {
         let data = self.led_buffer.clone();
 

@@ -122,22 +122,20 @@ const APP: () = {
 
     /// Increment ELAPSED_MS every millisecond
     /// The `wait()` call is important because it checks and resets the counter ready for the next period.
-    #[task(binds = TC4, priority = 3, resources = [elapsed_ms_timer, usb_device, usb_serial, usb_queue_rx])]
+    #[task(binds = TC4, priority = 3, resources = [elapsed_ms, elapsed_ms_timer, usb_device, usb_serial, usb_queue_rx])]
     fn tc4(c: tc4::Context) {
         if c.resources.elapsed_ms_timer.wait().is_ok() {
-            todo!();
-            /*
             let elapsed_ms = c.resources.elapsed_ms;
 
             elapsed_ms.increment();
 
+            // TODO: get rid of these
             let usb_device = c.resources.usb_device;
             let usb_serial = c.resources.usb_serial;
             let usb_queue_rx = c.resources.usb_queue_rx;
 
             // TODO: i had this in a task(binds = USB), but that only triggers on receive
             do_usb_things(elapsed_ms, usb_device, usb_serial, usb_queue_rx);
-            */
         }
     }
 
@@ -275,6 +273,7 @@ const APP: () = {
                     .enqueue(LogMessage::RedLedToggle(now))
                     .ok()
                     .unwrap();
+                rtic::pend(hal::pac::Interrupt::USB);
             }
 
             if let Some((start, time)) = my_lights.draw() {
@@ -282,6 +281,9 @@ const APP: () = {
                     .enqueue(LogMessage::DrawTime(start, time))
                     .ok()
                     .unwrap();
+
+                // TODO: not sure about this. i think doing this means we can drop 
+                rtic::pend(hal::pac::Interrupt::USB);
             }
         }
     }

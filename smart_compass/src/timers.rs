@@ -22,7 +22,7 @@ impl ElapsedMs {
 
     /// Increment the time. Call this every millisecond.
     /// This should probably be called inside an interrupt.
-    #[inline]
+    #[inline(always)]
     pub fn increment(&self) {
         self.increment_by(1);
     }
@@ -30,28 +30,28 @@ impl ElapsedMs {
     /// Increment the time by a configurable amount.
     /// thumbv6 doesn't have fetch_add
     /// This shuold probably be called if you ever disable interrupts.
-    #[inline]
+    /// TODO: `cfg(target = thumb6?)`
+    #[inline(always)]
     #[cfg(feature = "thumbv6")]
     pub fn increment_by(&self, by: u32) {
         cortex_m::interrupt::free(|_cs| {
-            let x = ELAPSED_MS.load(Ordering::SeqCst);
-
-            ELAPSED_MS.store(x + by, Ordering::SeqCst);
+            let x = ELAPSED_MS.load(Ordering::Relaxed);
+            ELAPSED_MS.store(x + by, Ordering::Relaxed);
         });
     }
 
     /// Increment the time by a configurable amount.
     /// This shuold probably be called if you ever disable interrupts.
-    #[inline]
+    #[inline(always)]
     #[cfg(not(feature = "thumbv6"))]
     pub fn increment_by(&self, by: u32) {
-        ELAPSED_MS.fetch_add(by, Ordering::SeqCst);
+        ELAPSED_MS.fetch_add(by, Ordering::Relaxed);
     }
 
     /// Load the current time in milliseconds since boot
-    #[inline]
+    #[inline(always)]
     pub fn now(&self) -> u32 {
-        ELAPSED_MS.load(Ordering::SeqCst)
+        ELAPSED_MS.load(Ordering::Relaxed)
     }
 }
 

@@ -260,12 +260,12 @@ impl<SerialTx: embedded_hal::serial::Write<u8>, EnablePin: OutputPin>
         }
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn data(&self) -> &GpsData {
         &self.data
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn write(&mut self, word: u8) {
         self.serial_tx.write(word).ok().unwrap();
     }
