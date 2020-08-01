@@ -176,7 +176,7 @@ const APP: () = {
         elapsed_ms_timer.enable_interrupt();
 
         // TODO: i can't figure out how to use rtic resources for this
-        let elapsed_ms = timers::ElapsedMs;
+        let elapsed_ms = timers::ElapsedMs::default();
 
         // setup USB serial for debug logging
         // TODO: put these usb things int resources instead of in statics
