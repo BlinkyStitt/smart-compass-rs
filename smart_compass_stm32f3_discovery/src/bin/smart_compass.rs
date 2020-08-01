@@ -13,7 +13,7 @@ use core::alloc::Layout;
 use cortex_m_semihosting::hprintln;
 use rtic::app;
 use shared_bus_rtic::SharedBus;
-use smart_compass::{battery, lights, location, network, storage, ELAPSED_MS, MAX_PEERS};
+use smart_compass::{battery, lights, location, network, storage, timers, MAX_PEERS};
 use stm32f3_discovery::accelerometer::{Orientation, RawAccelerometer};
 use stm32f3_discovery::compass::Compass;
 use stm32f3_discovery::cortex_m::asm::delay;
@@ -114,22 +114,20 @@ const APP: () = {
         // TODO: put compass in a shared_resources helper if theres more than one i2c
         compass: Compass,
         compass_lights: CompassLeds,
+        elapsed_ms: timers::ElapsedMs,
+        elapsed_ms_timer: hal::timer::Timer<hal::stm32::TIM7>,
         lights: MyLights,
         gps: MyGps,
         gps_queue: MyGpsQueue,
         shared_spi_resources: SharedSPIResources,
-        // timer4: hal::timer::Timer<hal::stm32::TIM4>,
-        timer7: hal::timer::Timer<hal::stm32::TIM7>,
     }
 
-    #[task(binds = TIM7, resources = [timer7, gps_queue])]
+    #[task(binds = TIM7, resources = [elapsed_ms, elapsed_ms_timer, gps_queue])]
     fn tim7(c: tim7::Context) {
-        if c.resources.timer7.wait().is_ok() {
+        if c.resources.elapsed_ms_timer.wait().is_ok() {
             // TODO: use an atomic for this? or use rtic resources?
             // TODO: is this how arduinio's millis function works?
-            unsafe {
-                ELAPSED_MS += 1;
-            }
+            c.resources.elapsed_ms.increment();
 
             // https://learn.adafruit.com/adafruit-ultimate-gps/parsed-data-output
             // "if you can, get this to run once a millisecond in an interrupt"
@@ -176,14 +174,17 @@ const APP: () = {
 
         // TODO: how many hz to 1 millisecond? i think we have a 72mhz processor, so 72_000
         // TODO: calculate this in case we run at a different speed
-        let mut timer7 = hal::timer::Timer::tim7(
+        let mut elapsed_ms_timer = hal::timer::Timer::tim7(
             device.TIM7,
             72_000.hz(),
             clocks,
             &mut reset_and_clock_control.apb1,
         );
         // TODO: is this `listen` needed? does rtic handle this for us?
-        timer7.listen(hal::timer::Event::Update);
+        elapsed_ms_timer.listen(hal::timer::Event::Update);
+
+        // TODO: i wanted a more complex type on this, but i started having troubles with lifetimes
+        let elapsed_ms = timers::ElapsedMs;
 
         // TODO: shared-bus for the i2c?
         // new lsm303 driver uses continuous mode, so no need wait for interrupts on DRDY
@@ -285,6 +286,7 @@ const APP: () = {
         let my_saturation = 0;
 
         let my_network: MyNetwork<_> = network::Network::new(
+            elapsed_ms.clone(),
             radio_spi,
             rfm95_cs,
             rfm95_busy,
@@ -342,6 +344,7 @@ const APP: () = {
         );
 
         let my_lights: MyLights = lights::Lights::new(
+            elapsed_ms.clone(),
             Ws2812::new(lights_spi),
             DEFAULT_BRIGHTNESS,
             FRAMES_PER_SECOND,
@@ -354,6 +357,7 @@ const APP: () = {
                 .pc8
                 .into_pull_down_input(&mut gpioc.moder, &mut gpioc.pupdr),
             60_000,
+            elapsed_ms.clone(),
         );
 
         let shared_spi_resources = SharedSPIResources {
@@ -369,7 +373,8 @@ const APP: () = {
             gps_queue: my_gps_queue,
             lights: my_lights,
             shared_spi_resources,
-            timer7,
+            elapsed_ms,
+            elapsed_ms_timer,
         }
     }
 
@@ -480,11 +485,9 @@ const APP: () = {
                     // radio transmit or receive depending on the time_segment_id
                     // TODO: spend 50% the time with the radio asleep?
                     if broadcasting_peer_id == my_peer_id {
-                        shared_spi_resources.network.transmit(
-                            epoch_seconds,
-                            time_segment_id,
-                            broadcasted_peer_id,
-                        );
+                        shared_spi_resources
+                            .network
+                            .transmit(time_segment_id, broadcasted_peer_id);
                     } else {
                         shared_spi_resources.network.try_receive();
                     }

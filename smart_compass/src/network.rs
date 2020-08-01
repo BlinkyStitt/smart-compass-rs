@@ -1,9 +1,10 @@
 use radio_sx127x::prelude::*;
 
-use crate::{ELAPSED_MS, MAX_PEERS};
+use crate::MAX_PEERS;
 // use blake2::{VarBlake2s};
 // use blake2::crypto_mac::{Mac, NewMac};
 // use cortex_m_semihosting::hprintln;
+use crate::timers::ElapsedMs;
 use serde::{Deserialize, Serialize};
 use serde_cbor::ser::SliceWrite;
 use serde_cbor::Serializer;
@@ -47,6 +48,8 @@ type MyRadio<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay>
 >;
 
 pub struct Network<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay> {
+    elapsed_ms: ElapsedMs,
+
     /// TODO: use the radio::Radio trait and do Network<Radio>
     radio: MyRadio<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay>,
     current_mode: Mode,
@@ -72,6 +75,7 @@ where
     Delay: embedded_hal::blocking::delay::DelayMs<u32>,
 {
     pub fn new(
+        elapsed_ms: ElapsedMs,
         spi: Spi,
         cs: CsPin,
         busy: BusyPin,
@@ -97,6 +101,7 @@ where
         let locations = Default::default();
 
         Self {
+            elapsed_ms,
             radio,
             current_mode,
             network_hash,
@@ -152,7 +157,7 @@ where
         }
     }
 
-    pub fn transmit(&mut self, now: u32, time_segment_id: usize, peer_id: usize) {
+    pub fn transmit(&mut self, time_segment_id: usize, peer_id: usize) {
         if self.current_mode == Mode::Transmit && self.radio.check_transmit().ok().unwrap() {
             // another transmission is in process. skip
             return;
@@ -168,10 +173,12 @@ where
 
             *broadcasted_at_id = time_segment_id;
 
+            let now = self.elapsed_ms.now();
+
             // TODO: reuse the message and serialzer
             let message = Message {
                 location: *location,
-                tx_ms: unsafe { ELAPSED_MS },
+                tx_ms: now,
                 tx_peer_id: self.my_peer_id,
                 tx_time: now,
             };

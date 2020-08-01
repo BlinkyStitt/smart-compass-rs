@@ -12,7 +12,6 @@
 //! TODO: "video" dimming like FastLED does?
 //!
 //! TODO: theres a lot of casting between u8, u16, u32, and i16. I'm not sure it is all correct
-use crate::ELAPSED_MS;
 use smart_leds::RGB8;
 
 /// beat88 generates a 16-bit 'sawtooth' wave at a given BPM,
@@ -29,10 +28,8 @@ use smart_leds::RGB8;
 /// The ratio 65536:60000 is 279.620266667:256; we'll call it 280:256.
 /// The conversion is accurate to about 0.05%, more or less,
 /// e.g. if you ask for "120 BPM", you'll get about "119.93".
-pub fn beat88(bpm88: u16, time_base: u32) -> u16 {
-    let now = unsafe { ELAPSED_MS };
-
-    (((now - time_base) * bpm88 as u32 * 280) >> 16) as u16
+pub fn beat88(now: u32, bpm88: u16) -> u16 {
+    ((now * bpm88 as u32 * 280) >> 16) as u16
 }
 
 /// beatsin88 generates a 16-bit sine wave at a given BPM,
@@ -41,9 +38,9 @@ pub fn beat88(bpm88: u16, time_base: u32) -> u16 {
 /// a Q8.8 fixed-point value; e.g. 120BPM must be
 /// specified as 120*256 = 30720.
 /// If you just want to specify "120", use beatsin16 or beatsin8.
-pub fn beatsin88(bpm88: u16, low: u16, high: u16, time_base: u32, phase_offset: u16) -> u16 {
+pub fn beatsin88(now: u32, bpm88: u16, low: u16, high: u16, phase_offset: u16) -> u16 {
     // uint16_t beat = beat88( beats_per_minute_88, timebase);
-    let beat = beat88(bpm88, time_base);
+    let beat = beat88(now, bpm88);
 
     // uint16_t beatsin = (sin16( beat + phase_offset) + 32768);
     let beat_sin = (sin16(beat + phase_offset) + 32767 + 1) as u16;

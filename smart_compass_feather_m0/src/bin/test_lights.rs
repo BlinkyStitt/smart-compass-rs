@@ -18,7 +18,7 @@ use heapless::consts::*;
 use heapless::spsc::{Consumer, Producer, Queue};
 use numtoa::NumToA;
 use rtic::app;
-use smart_compass::{lights, periodic, ELAPSED_MS};
+use smart_compass::{lights, timers};
 use usbd_serial::{SerialPort, USB_CLASS_CDC};
 use ws2812_timer_delay::Ws2812;
 
@@ -51,6 +51,7 @@ pub enum LogMessage {
 
 /// TODO: think about this more
 fn do_usb_things(
+    elapsed_ms: &timers::ElapsedMs,
     usb_device: &mut usb_device::device::UsbDevice<'static, hal::UsbBus>,
     usb_serial: &mut usbd_serial::SerialPort<'static, hal::UsbBus>,
     usb_queue_rx: &mut Consumer<'static, LogMessage, U8, u8>,
@@ -62,7 +63,7 @@ fn do_usb_things(
         let mut msg_buf = [0u8; 64];
 
         if let Ok(count) = usb_serial.read(&mut msg_buf) {
-            let now = unsafe { ELAPSED_MS };
+            let now = elapsed_ms.now();
 
             if let Ok(_) = usb_serial.write(now.numtoa(10, &mut time_buf)) {
                 usb_serial.write(b" - ").ok();
@@ -82,7 +83,7 @@ fn do_usb_things(
 
     // TODO: this could be bettr. if writing gets an error, drain the queeue
     while let Some(msg) = usb_queue_rx.dequeue() {
-        let now = unsafe { ELAPSED_MS };
+        let now = elapsed_ms.now();
 
         if let Ok(_) = usb_serial.write(now.numtoa(10, &mut time_buf)) {
             usb_serial.write(b" - ").ok();
@@ -109,8 +110,9 @@ fn do_usb_things(
 const APP: () = {
     struct Resources {
         lights: MyLights,
+        elapsed_ms: timers::ElapsedMs,
         elapsed_ms_timer: hal::timer::TimerCounter4,
-        every_200_millis: periodic::Periodic,
+        every_200_millis: timers::EveryNMillis,
         red_led: hal::gpio::Pa17<hal::gpio::Output<hal::gpio::OpenDrain>>,
         usb_device: usb_device::device::UsbDevice<'static, hal::UsbBus>,
         usb_queue_tx: Producer<'static, LogMessage, U8, u8>,
@@ -123,17 +125,19 @@ const APP: () = {
     #[task(binds = TC4, priority = 3, resources = [elapsed_ms_timer, usb_device, usb_serial, usb_queue_rx])]
     fn tc4(c: tc4::Context) {
         if c.resources.elapsed_ms_timer.wait().is_ok() {
-            unsafe {
-                // TODO: use an rtic resource (atomicUsize?)
-                ELAPSED_MS += 1;
-            }
+            todo!();
+            /*
+            let elapsed_ms = c.resources.elapsed_ms;
+
+            elapsed_ms.increment();
 
             let usb_device = c.resources.usb_device;
             let usb_serial = c.resources.usb_serial;
             let usb_queue_rx = c.resources.usb_queue_rx;
 
             // TODO: i had this in a task(binds = USB), but that only triggers on receive
-            do_usb_things(usb_device, usb_serial, usb_queue_rx);
+            do_usb_things(elapsed_ms, usb_device, usb_serial, usb_queue_rx);
+            */
         }
     }
 
@@ -175,6 +179,9 @@ const APP: () = {
         elapsed_ms_timer.start(1.ms());
         elapsed_ms_timer.enable_interrupt();
 
+        // TODO: do this as a proper rtic resource
+        let elapsed_ms: timers::ElapsedMs = timers::ElapsedMs;
+
         // setup USB serial for debug logging
         // TODO: put these usb things int resources instead of in statics
         let usb_allocator = unsafe {
@@ -193,8 +200,8 @@ const APP: () = {
 
         let usb_serial = SerialPort::new(&usb_allocator);
         let usb_device = UsbDeviceBuilder::new(&usb_allocator, UsbVidPid(0x16c0, 0x27dd))
-            .manufacturer("Fake company")
-            .product("Serial port")
+            .manufacturer("StittHappens")
+            .product("Smart Compass")
             .serial_number("TEST")
             .device_class(USB_CLASS_CDC)
             .build();
@@ -215,17 +222,19 @@ const APP: () = {
         let light_pin = pins.d6.into_push_pull_output(&mut pins.port);
 
         let my_lights: MyLights = lights::Lights::new(
+            elapsed_ms.clone(),
             Ws2812::new(light_timer, light_pin),
             DEFAULT_BRIGHTNESS,
             FRAMES_PER_SECOND,
         );
 
-        let every_200_millis = periodic::Periodic::new(200);
+        let every_200_millis = timers::EveryNMillis::new(elapsed_ms.clone(), 200);
 
         init::LateResources {
             every_200_millis,
             lights: my_lights,
             red_led,
+            elapsed_ms,
             elapsed_ms_timer,
             usb_device,
             usb_queue_tx,
@@ -257,12 +266,11 @@ const APP: () = {
         // delay.delay_ms(1000u16);
 
         loop {
-            if every_200_millis.ready() {
+            if let Ok(now) = every_200_millis.ready() {
                 red_led.toggle();
 
-                // we enqueue_unchecked because if the usb device isn't attached, we can't log to it
-                let now = unsafe { ELAPSED_MS };
-
+                // TODO: we used to enqueue_unchecked because if the usb device isn't attached, we can't log to it
+                // TODO: but i think our interrupts run fast enough (and they will discard data)
                 usb_queue_tx
                     .enqueue(LogMessage::RedLedToggle(now))
                     .ok()
@@ -270,7 +278,6 @@ const APP: () = {
             }
 
             if let Some((start, time)) = my_lights.draw() {
-                // we enqueue_unchecked because if the usb device isn't attached, we can't log to it
                 usb_queue_tx
                     .enqueue(LogMessage::DrawTime(start, time))
                     .ok()

@@ -1,32 +1,31 @@
-use super::focalintent::*;
-use super::patterns;
+use super::super::focalintent::*;
+use super::{ANGLES, PHYSICAL_TO_FIBONACCI};
+use crate::timers::ElapsedMs;
+use core::cmp::Ordering;
 use smart_leds::{colors, RGB8};
 
-#[derive(Default)]
-pub struct AnalogClock {
+pub struct Clock {
+    elapsed_ms: ElapsedMs,
     hour_angle: u8,
     minute_angle: u8,
     second_angle: u8,
     background_fade: u8,
 }
 
-impl AnalogClock {
-    pub fn new(background_fade: u8) -> Self {
+impl Clock {
+    pub fn new(elapsed_ms: ElapsedMs, background_fade: u8) -> Self {
         assert!(background_fade > 0);
 
         Self {
+            elapsed_ms,
+            hour_angle: 0,
+            minute_angle: 0,
+            second_angle: 0,
             background_fade,
-            ..Default::default()
         }
     }
 
-    pub fn drawAnalogClock(
-        &mut self,
-        leds: &mut [RGB8],
-        mut hour: f32,
-        mut minute: f32,
-        second: f32,
-    ) {
+    pub fn draw(&mut self, leds: &mut [RGB8], mut hour: f32, mut minute: f32, second: f32) {
         // float second = timeClient.getSeconds();
 
         // float minute = timeClient.getMinutes() + (second / 60.0);
@@ -70,7 +69,7 @@ impl AnalogClock {
         fade_to_black_by(leds, self.background_fade);
 
         // antialiasPixelAR(secondAngle, handWidth, 0, secondRadius, CRGB::Blue);
-        patterns::antialias_pixel_ar(
+        antialias_pixel_ar(
             leds,
             self.second_angle,
             HAND_WIDTH,
@@ -79,7 +78,7 @@ impl AnalogClock {
             colors::BLUE,
         );
         // antialiasPixelAR(minuteAngle, handWidth, 0, minuteRadius, CRGB::Green);
-        patterns::antialias_pixel_ar(
+        antialias_pixel_ar(
             leds,
             self.minute_angle,
             HAND_WIDTH,
@@ -88,7 +87,7 @@ impl AnalogClock {
             colors::GREEN,
         );
         // antialiasPixelAR(hourAngle, handWidth, 0, hourRadius, CRGB::Red);
-        patterns::antialias_pixel_ar(
+        antialias_pixel_ar(
             leds,
             self.hour_angle,
             HAND_WIDTH,
@@ -99,5 +98,56 @@ impl AnalogClock {
 
         // leds[0] = CRGB::Red;
         leds[0] = colors::RED;
+    }
+}
+
+// TODO: test this
+pub fn antialias_pixel_ar(
+    leds: &mut [RGB8],
+    angle: u8,
+    d_angle: u8,
+    start_radius: u8,
+    end_radius: u8,
+    color: RGB8,
+) {
+    // uint16_t amax = qadd8(angle, dAngle);
+    let amax: u8 = angle.saturating_add(d_angle);
+    // uint8_t amin = qsub8(angle, dAngle);
+    let amin: u8 = angle.saturating_sub(d_angle);
+
+    // for (uint16_t i = 0; i < NUM_LEDS; i++) {
+    for i in 0..leds.len() {
+        // uint8_t o = i;
+
+        // uint8_t ao = angles[o];
+        let ao: u8 = ANGLES[i];
+
+        // uint8_t adiff = qsub8(max(ao, angle), min(ao, angle));
+        // let adiff = max(ao, angle).saturating_sub(min(ao, angle));
+        let adiff = match ao.cmp(&angle) {
+            Ordering::Less => angle - ao,
+            Ordering::Greater => ao - angle,
+            Ordering::Equal => 0,
+        };
+
+        // uint8_t fade = qmul8(adiff, 32);
+        let fade: u8 = adiff.saturating_mul(32);
+
+        // CRGB faded = color;
+        // faded.fadeToBlackBy(fade);
+        // TODO: i'm not sure this is correct
+        fade_to_black_by(&mut [color], fade);
+
+        // if (ao <= amax && ao >= amin) {
+        if ao <= amax && ao >= amin {
+            // uint8_t ro = physicalToFibonacci[o];
+            let ro: u8 = PHYSICAL_TO_FIBONACCI[i];
+
+            // if (ro <= endRadius && ro >= startRadius) {
+            if ro <= end_radius && ro >= start_radius {
+                // leds[i] += faded;
+                leds[i] += color;
+            }
+        }
     }
 }

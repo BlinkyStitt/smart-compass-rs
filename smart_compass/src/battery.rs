@@ -1,7 +1,7 @@
 //! The Feather m0 comes with a voltage divider connected to a pin so we can read the voltage.
 //! i don't see that on the stm32f3 discovery
 //! i think it's fine to just use
-use crate::periodic::Periodic;
+use crate::timers::{ElapsedMs, EveryNMillis};
 use embedded_hal::digital::v2::InputPin;
 
 #[derive(Copy, Clone, PartialEq)]
@@ -13,14 +13,13 @@ pub enum BatteryStatus {
 pub struct Battery<StatusInputPin> {
     status: BatteryStatus,
     pin: StatusInputPin,
-    check_interval: Periodic,
+    check_interval: EveryNMillis,
 }
 
 impl<StatusInputPin: InputPin> Battery<StatusInputPin> {
-    pub fn new(pin: StatusInputPin, check_ms: u32) -> Self {
+    pub fn new(pin: StatusInputPin, check_ms: u32, elapsed_ms: ElapsedMs) -> Self {
         // TODO: use rtic's periodic tasks instead of our own
-        // TODO: should this use the rtc?
-        let check_interval = Periodic::new(check_ms);
+        let check_interval = EveryNMillis::new(elapsed_ms, check_ms);
 
         Self {
             status: BatteryStatus::Ok,
@@ -32,7 +31,7 @@ impl<StatusInputPin: InputPin> Battery<StatusInputPin> {
     pub fn check(&mut self) -> (bool, BatteryStatus) {
         let mut changed = false;
 
-        if self.check_interval.ready() {
+        if let Ok(_) = self.check_interval.ready() {
             let new_status = if self.pin.is_high().ok().unwrap() {
                 BatteryStatus::Ok
             } else {

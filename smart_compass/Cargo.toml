@@ -6,6 +6,7 @@ edition = "2018"
 readme = "README.md"
 
 [features]
+thumbv6 = ["cortex-m"]
 lights_interrupt_free = ["cortex-m"]
 
 [dependencies]
@@ -21,6 +22,7 @@ cortex-m = { version = "0.6", optional = true }
 blake2 = { version = "0.9", default-features = false }
 embedded-sdmmc = "0.3"
 heapless = "0.5"
+nb = "1.0"
 num = { version = "0.3", default-features = false }
 numtoa = "0.2"
 radio-sx127x = { version = "0.10", default-features = false }

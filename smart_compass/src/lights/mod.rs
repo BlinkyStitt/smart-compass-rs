@@ -1,20 +1,18 @@
-mod clock;
 mod focalintent;
 mod networked;
 mod patterns;
 
 use self::patterns::Pattern;
-use crate::periodic::Periodic;
-use crate::ELAPSED_MS;
+use crate::timers::{ElapsedMs, EveryNMillis};
+use crate::NUM_LEDS;
 use accelerometer::Orientation;
 use smart_leds::{brightness, gamma, SmartLedsWrite, RGB8};
 
-const NUM_LEDS: usize = 256;
-
 /// TODO: better trait bounds?
 pub struct Lights<SmartLeds: SmartLedsWrite> {
+    elapsed_ms: ElapsedMs,
     brightness: u8,
-    framerate: Periodic,
+    framerate: EveryNMillis,
     leds: SmartLeds,
     orientation: Orientation,
     last_orientation: Orientation,
@@ -25,31 +23,37 @@ pub struct Lights<SmartLeds: SmartLedsWrite> {
     led_buffer: [RGB8; NUM_LEDS],
 
     // TODO: think about this more
-    clock: clock::AnalogClock,
-    pride: patterns::Pride,
-    wheel: patterns::Wheel,
+    pattern_clock: patterns::Clock,
+    pattern_pride: patterns::Pride,
+    pattern_sunflower: patterns::Sunflower,
 }
 
 impl<SmartLeds: SmartLedsWrite> Lights<SmartLeds>
 where
     SmartLeds::Color: core::convert::From<smart_leds::RGB<u8>>,
 {
-    pub fn new(leds: SmartLeds, brightness: u8, frames_per_second: u8) -> Self {
+    pub fn new(
+        elapsed_ms: ElapsedMs,
+        leds: SmartLeds,
+        brightness: u8,
+        frames_per_second: u8,
+    ) -> Self {
         let light_data: [RGB8; NUM_LEDS] = [RGB8::default(); NUM_LEDS];
 
         let framerate_ms = 1_000 / (frames_per_second as u32);
 
-        let framerate = Periodic::new(framerate_ms);
+        let framerate = EveryNMillis::new(elapsed_ms.clone(), framerate_ms);
 
         let orientation = Orientation::Unknown;
         let last_orientation = Orientation::Unknown;
 
-        let pride = patterns::Pride::default();
-        let wheel = patterns::Wheel::new();
         // TODO: how should the clock get the time?
-        let clock = clock::AnalogClock::new(240);
+        let pattern_clock = patterns::Clock::new(elapsed_ms.clone(), 240);
+        let pattern_pride = patterns::Pride::new(elapsed_ms.clone());
+        let pattern_sunflower = patterns::Sunflower::new(elapsed_ms.clone());
 
         Self {
+            elapsed_ms,
             brightness,
             framerate,
             frames_drawn: 0,
@@ -57,9 +61,9 @@ where
             led_buffer: light_data,
             leds,
             orientation,
-            clock,
-            pride,
-            wheel,
+            pattern_clock,
+            pattern_pride,
+            pattern_sunflower,
         }
     }
 
@@ -97,7 +101,7 @@ where
                 // render pretty lights
                 // TODO: lots of different patterns to choose from
                 /*
-                let now = unsafe { ELAPSED_MS };
+                let now = ELAPSED_MS.now();
 
                 // TODO: how should we scale now?
                 // let j = self.frames_drawn % (NUM_LEDS as u32 * 5);
@@ -110,7 +114,7 @@ where
                     );
                 }
                 */
-                self.wheel.draw(&mut self.led_buffer);
+                self.pattern_sunflower.draw(&mut self.led_buffer);
 
                 // self.clock.drawAnalogClock(&mut self.led_buffer, 9.0, 30.0, 0.0);
             }
@@ -140,9 +144,7 @@ where
 
             // TODO: from a quick test, it looks like drawing 256 WS2812 takes 12-13ms
             // TODO: this should probably be configurable
-            unsafe {
-                ELAPSED_MS += 12;
-            }
+            self.elapsed_ms.increment_by(12);
         });
     }
 
@@ -200,13 +202,9 @@ where
     }
 
     pub fn draw(&mut self) -> Option<(u32, u32)> {
-        if !self.framerate.ready() {
-            return None;
-        }
+        let start = self.framerate.ready().ok()?;
 
         // TODO: warn if framerate is too fast for us to keep up. will need to keep track of the last time we drew
-
-        let start = unsafe { ELAPSED_MS };
 
         // fill the light buffer
         // TODO: make it possible to call buffer seperate from draw
@@ -219,7 +217,7 @@ where
         // increment frames_drawn to advance our patterns
         self.frames_drawn += 1;
 
-        let time = unsafe { ELAPSED_MS } - start;
+        let time = self.framerate.now() - start;
 
         Some((start, time))
     }
