@@ -18,30 +18,17 @@ use smart_leds::RGB8;
 
 // Draws rainbows with an ever-changing, widely-varying set of parameters.
 // https://gist.github.com/kriegsman/964de772d64c502760e5
+#[derive(Default)]
 pub struct Pride {
-    elapsed_ms: ElapsedMs,
     pseudotime: u16,
     last_ms: u16,
     hue: u16,
 }
 
-impl Pride {
-    pub fn new(elapsed_ms: ElapsedMs) -> Self {
-        Self {
-            elapsed_ms,
-            pseudotime: 0,
-            last_ms: 0,
-            hue: 0,
-        }
-    }
-}
-
 impl Pattern for Pride {
     /// TODO: this is not correct. write tests for beatsin88
     /// TODO: https://github.com/jasoncoon/esp8266-fastled-webserver/blob/fibonacci256/esp8266-fastled-webserver.ino#L1183
-    fn draw(&mut self, leds: &mut [RGB8]) {
-        let now = self.elapsed_ms.now();
-
+    fn draw(&mut self, now: u32, leds: &mut [RGB8]) {
         // TODO: figure out what all these numbers do and make it look good on two concentric rings
         // uint8_t sat8 = beatsin88(87, 220, 250);
         let sat8 = beatsin88(now, 87, 220, 250, 0) as u8;

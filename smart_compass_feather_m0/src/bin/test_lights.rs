@@ -106,11 +106,13 @@ fn do_usb_things(
     }
 }
 
+/// TODO: figure out how to properly use rtic resources
+static mut ELAPSED_MS: Option<timers::ElapsedMs> = None;
+
 #[app(device = hal::pac, peripherals = true)]
 const APP: () = {
     struct Resources {
         lights: MyLights,
-        elapsed_ms: timers::ElapsedMs,
         elapsed_ms_timer: hal::timer::TimerCounter4,
         every_200_millis: timers::EveryNMillis,
         red_led: hal::gpio::Pa17<hal::gpio::Output<hal::gpio::OpenDrain>>,
@@ -122,10 +124,10 @@ const APP: () = {
 
     /// Increment ELAPSED_MS every millisecond
     /// The `wait()` call is important because it checks and resets the counter ready for the next period.
-    #[task(binds = TC4, priority = 3, resources = [elapsed_ms, elapsed_ms_timer, usb_device, usb_serial, usb_queue_rx])]
+    #[task(binds = TC4, priority = 3, resources = [elapsed_ms_timer, usb_device, usb_serial, usb_queue_rx])]
     fn tc4(c: tc4::Context) {
         if c.resources.elapsed_ms_timer.wait().is_ok() {
-            let elapsed_ms = c.resources.elapsed_ms;
+            let elapsed_ms = unsafe { ELAPSED_MS.as_ref().unwrap() };
 
             elapsed_ms.increment();
 
@@ -177,8 +179,10 @@ const APP: () = {
         elapsed_ms_timer.start(1.ms());
         elapsed_ms_timer.enable_interrupt();
 
-        // TODO: do this as a proper rtic resource
-        let elapsed_ms: timers::ElapsedMs = timers::ElapsedMs;
+        // TODO: i can't figure out how to use rtic resources for this
+        unsafe {
+            ELAPSED_MS = Some(timers::ElapsedMs::default());
+        }
 
         // setup USB serial for debug logging
         // TODO: put these usb things int resources instead of in statics
@@ -220,19 +224,17 @@ const APP: () = {
         let light_pin = pins.d6.into_push_pull_output(&mut pins.port);
 
         let my_lights: MyLights = lights::Lights::new(
-            elapsed_ms.clone(),
             Ws2812::new(light_timer, light_pin),
             DEFAULT_BRIGHTNESS,
             FRAMES_PER_SECOND,
         );
 
-        let every_200_millis = timers::EveryNMillis::new(elapsed_ms.clone(), 200);
+        let every_200_millis = timers::EveryNMillis::new(200);
 
         init::LateResources {
             every_200_millis,
             lights: my_lights,
             red_led,
-            elapsed_ms,
             elapsed_ms_timer,
             usb_device,
             usb_queue_tx,
@@ -253,18 +255,21 @@ const APP: () = {
         let red_led = c.resources.red_led;
         let usb_queue_tx = c.resources.usb_queue_tx;
 
+        let elapsed_ms = unsafe { ELAPSED_MS.as_ref().unwrap() };
+
         // TODO: reset the usb device?
 
         // delay.delay_ms(200u16);
 
-        my_lights.draw_black();
+        // TODO: why does this need the lock? i thought atomic would mean it wouldn't
+        my_lights.draw_black(elapsed_ms);
 
         // delay.delay_ms(1000u16);
         // my_lights.draw_test_pattern();
         // delay.delay_ms(1000u16);
 
         loop {
-            if let Ok(now) = every_200_millis.ready() {
+            if let Ok(now) = every_200_millis.ready(elapsed_ms) {
                 red_led.toggle();
 
                 // TODO: we used to enqueue_unchecked because if the usb device isn't attached, we can't log to it
@@ -273,16 +278,18 @@ const APP: () = {
                     .enqueue(LogMessage::RedLedToggle(now))
                     .ok()
                     .unwrap();
+
+                // TODO: test this
                 rtic::pend(hal::pac::Interrupt::USB);
             }
 
-            if let Some((start, time)) = my_lights.draw() {
+            if let Some((start, time)) = my_lights.draw(elapsed_ms) {
                 usb_queue_tx
                     .enqueue(LogMessage::DrawTime(start, time))
                     .ok()
                     .unwrap();
 
-                // TODO: not sure about this. i think doing this means we can drop 
+                // TODO: test this. i think doing this means we can drop doing usb check inside the millis interrupt
                 rtic::pend(hal::pac::Interrupt::USB);
             }
         }

@@ -17,9 +17,9 @@ pub struct Battery<StatusInputPin> {
 }
 
 impl<StatusInputPin: InputPin> Battery<StatusInputPin> {
-    pub fn new(pin: StatusInputPin, check_ms: u32, elapsed_ms: ElapsedMs) -> Self {
+    pub fn new(pin: StatusInputPin, check_ms: u32) -> Self {
         // TODO: use rtic's periodic tasks instead of our own
-        let check_interval = EveryNMillis::new(elapsed_ms, check_ms);
+        let check_interval = EveryNMillis::new(check_ms);
 
         Self {
             status: BatteryStatus::Ok,
@@ -28,10 +28,10 @@ impl<StatusInputPin: InputPin> Battery<StatusInputPin> {
         }
     }
 
-    pub fn check(&mut self) -> (bool, BatteryStatus) {
+    pub fn check(&mut self, elapsed_ms: &ElapsedMs) -> (bool, BatteryStatus) {
         let mut changed = false;
 
-        if let Ok(_) = self.check_interval.ready() {
+        if let Ok(_) = self.check_interval.ready(elapsed_ms) {
             let new_status = if self.pin.is_high().ok().unwrap() {
                 BatteryStatus::Ok
             } else {

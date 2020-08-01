@@ -5,7 +5,6 @@ use core::cmp::Ordering;
 use smart_leds::{colors, RGB8};
 
 pub struct Clock {
-    elapsed_ms: ElapsedMs,
     hour_angle: u8,
     minute_angle: u8,
     second_angle: u8,
@@ -13,11 +12,10 @@ pub struct Clock {
 }
 
 impl Clock {
-    pub fn new(elapsed_ms: ElapsedMs, background_fade: u8) -> Self {
+    pub fn new(background_fade: u8) -> Self {
         assert!(background_fade > 0);
 
         Self {
-            elapsed_ms,
             hour_angle: 0,
             minute_angle: 0,
             second_angle: 0,
@@ -25,7 +23,14 @@ impl Clock {
         }
     }
 
-    pub fn draw(&mut self, leds: &mut [RGB8], mut hour: f32, mut minute: f32, second: f32) {
+    pub fn draw(
+        &mut self,
+        elapsed_ms: &ElapsedMs,
+        leds: &mut [RGB8],
+        mut hour: f32,
+        mut minute: f32,
+        second: f32,
+    ) {
         // float second = timeClient.getSeconds();
 
         // float minute = timeClient.getMinutes() + (second / 60.0);

@@ -26,6 +26,8 @@ use ws2812_spi::Ws2812;
 #[global_allocator]
 static ALLOCATOR: CortexMHeap = CortexMHeap::empty();
 
+static mut ELAPSED_MS: Option<timers::ElapsedMs> = None;
+
 type MyBattery = battery::Battery<hal::gpio::gpioc::PC8<hal::gpio::Input<hal::gpio::PullDown>>>;
 
 /// TODO: what should we name this
@@ -184,7 +186,7 @@ const APP: () = {
         elapsed_ms_timer.listen(hal::timer::Event::Update);
 
         // TODO: i wanted a more complex type on this, but i started having troubles with lifetimes
-        let elapsed_ms = timers::ElapsedMs;
+        let elapsed_ms = timers::ElapsedMs::default();
 
         // TODO: shared-bus for the i2c?
         // new lsm303 driver uses continuous mode, so no need wait for interrupts on DRDY
@@ -286,7 +288,7 @@ const APP: () = {
         let my_saturation = 0;
 
         let my_network: MyNetwork<_> = network::Network::new(
-            elapsed_ms.clone(),
+            elapsed_ms,
             radio_spi,
             rfm95_cs,
             rfm95_busy,
@@ -344,7 +346,6 @@ const APP: () = {
         );
 
         let my_lights: MyLights = lights::Lights::new(
-            elapsed_ms.clone(),
             Ws2812::new(lights_spi),
             DEFAULT_BRIGHTNESS,
             FRAMES_PER_SECOND,
@@ -357,7 +358,6 @@ const APP: () = {
                 .pc8
                 .into_pull_down_input(&mut gpioc.moder, &mut gpioc.pupdr),
             60_000,
-            elapsed_ms.clone(),
         );
 
         let shared_spi_resources = SharedSPIResources {
@@ -396,7 +396,9 @@ const APP: () = {
         let my_lights = c.resources.lights;
         let shared_spi_resources = c.resources.shared_spi_resources;
 
-        my_lights.draw_test_pattern();
+        let elapsed_ms = ELAPSED_MS.as_ref().unwrap();
+
+        my_lights.draw_test_pattern(elapsed_ms);
 
         // TODO: read this from the SD
         let my_peer_id: usize = 1;
@@ -424,7 +426,7 @@ const APP: () = {
         delay(72_000_000);
 
         loop {
-            match my_battery.check() {
+            match my_battery.check(elapsed_ms) {
                 (false, _) => { /* no change */ }
                 (true, battery::BatteryStatus::Low) => {
                     hprintln!("Battery low").unwrap();
@@ -449,7 +451,7 @@ const APP: () = {
 
             my_lights.set_orientation(orientation);
 
-            my_lights.draw();
+            my_lights.draw(elapsed_ms);
 
             if my_gps.receive() {
                 hprintln!("GPS received a sentence").unwrap();
@@ -466,7 +468,7 @@ const APP: () = {
                 }
             }
 
-            my_lights.draw();
+            my_lights.draw(elapsed_ms);
 
             if my_gps.has_fix() {
                 hprintln!("GPS has fix").unwrap();
@@ -503,7 +505,7 @@ const APP: () = {
             }
 
             // draw again because the using radio can take a while
-            my_lights.draw();
+            my_lights.draw(elapsed_ms);
 
             // TODO: fastLED.delay equivalent to improve brightness? make sure it doesn't block the radios!
         }

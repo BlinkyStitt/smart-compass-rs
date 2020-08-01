@@ -7,15 +7,13 @@ enum Direction {
 }
 
 pub struct Sunflower {
-    elapsed_ms: ElapsedMs,
     direction: Direction,
     pixel_map: &'static [u8],
 }
 
 impl Sunflower {
-    pub fn new(elapsed_ms: ElapsedMs) -> Self {
+    pub fn new() -> Self {
         Self {
-            elapsed_ms,
             direction: Direction::Out,
             pixel_map: &PHYSICAL_TO_FIBONACCI,
         }
@@ -24,10 +22,10 @@ impl Sunflower {
 
 impl Pattern for Sunflower {
     /// TODO: fastled did something special for rainbows. do the same here
-    fn draw(&mut self, leds: &mut [RGB8]) {
+    fn draw(&mut self, now: u32, leds: &mut [RGB8]) {
         // divide to slow down the animation.
         // TODO: or we could advance by 1 per frame
-        let now = self.elapsed_ms.now() / 30;
+        let now = now / 30;
 
         for (i, led) in leds.iter_mut().enumerate() {
             let hue = match self.direction {

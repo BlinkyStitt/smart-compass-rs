@@ -10,7 +10,6 @@ use smart_leds::{brightness, gamma, SmartLedsWrite, RGB8};
 
 /// TODO: better trait bounds?
 pub struct Lights<SmartLeds: SmartLedsWrite> {
-    elapsed_ms: ElapsedMs,
     brightness: u8,
     framerate: EveryNMillis,
     leds: SmartLeds,
@@ -32,28 +31,22 @@ impl<SmartLeds: SmartLedsWrite> Lights<SmartLeds>
 where
     SmartLeds::Color: core::convert::From<smart_leds::RGB<u8>>,
 {
-    pub fn new(
-        elapsed_ms: ElapsedMs,
-        leds: SmartLeds,
-        brightness: u8,
-        frames_per_second: u8,
-    ) -> Self {
+    pub fn new(leds: SmartLeds, brightness: u8, frames_per_second: u8) -> Self {
         let light_data: [RGB8; NUM_LEDS] = [RGB8::default(); NUM_LEDS];
 
         let framerate_ms = 1_000 / (frames_per_second as u32);
 
-        let framerate = EveryNMillis::new(elapsed_ms.clone(), framerate_ms);
+        let framerate = EveryNMillis::new(framerate_ms);
 
         let orientation = Orientation::Unknown;
         let last_orientation = Orientation::Unknown;
 
         // TODO: how should the clock get the time?
-        let pattern_clock = patterns::Clock::new(elapsed_ms.clone(), 240);
-        let pattern_pride = patterns::Pride::new(elapsed_ms.clone());
-        let pattern_sunflower = patterns::Sunflower::new(elapsed_ms.clone());
+        let pattern_clock = patterns::Clock::new(240);
+        let pattern_pride = patterns::Pride::default();
+        let pattern_sunflower = patterns::Sunflower::new();
 
         Self {
-            elapsed_ms,
             brightness,
             framerate,
             frames_drawn: 0,
@@ -76,7 +69,7 @@ where
     }
 
     // fill the buffer with the light data
-    fn _buffer(&mut self) {
+    fn _buffer(&mut self, elapsed_ms: &ElapsedMs) {
         // TODO: match or something to pick between a bunch of different patterns
         let orientation_changed = self.last_orientation == self.orientation;
 
@@ -100,6 +93,7 @@ where
             | Orientation::Unknown => {
                 // render pretty lights
                 // TODO: lots of different patterns to choose from
+                let now = elapsed_ms.now();
                 /*
                 let now = ELAPSED_MS.now();
 
@@ -114,7 +108,7 @@ where
                     );
                 }
                 */
-                self.pattern_sunflower.draw(&mut self.led_buffer);
+                self.pattern_sunflower.draw(now, &mut self.led_buffer);
 
                 // self.clock.drawAnalogClock(&mut self.led_buffer, 9.0, 30.0, 0.0);
             }
@@ -127,7 +121,7 @@ where
 
     #[cfg(feature = "lights_interrupt_free")]
     #[inline(always)]
-    fn _draw(&mut self) {
+    fn _draw(&mut self, elapsed_ms: &ElapsedMs) {
         let data = self.led_buffer;
 
         // correct the colors
@@ -144,13 +138,13 @@ where
 
             // TODO: from a quick test, it looks like drawing 256 WS2812 takes 12-13ms
             // TODO: this should probably be configurable
-            self.elapsed_ms.increment_by(12);
+            elapsed_ms.increment_by(12);
         });
     }
 
     #[cfg(not(feature = "lights_interrupt_free"))]
     #[inline(always)]
-    fn _draw(&mut self) {
+    fn _draw(&mut self, _elapsed_ms: &ElapsedMs) {
         let data = self.led_buffer.clone();
 
         // correct the colors
@@ -166,13 +160,13 @@ where
 
     /// TODO: should this fill the buffer with black, too?
     /// TODO: I think FastLED had helpers to do this quickly
-    pub fn draw_black(&mut self) {
+    pub fn draw_black(&mut self, elapsed_ms: &ElapsedMs) {
         focalintent::fade_to_black_by(&mut self.led_buffer, 255);
 
-        self._draw();
+        self._draw(elapsed_ms);
     }
 
-    pub fn draw_test_pattern(&mut self) {
+    pub fn draw_test_pattern(&mut self, elapsed_ms: &ElapsedMs) {
         // 1 red
         self.led_buffer[0].r = 0xFF;
 
@@ -198,26 +192,26 @@ where
         self.led_buffer[255].g = 0xFF;
         self.led_buffer[255].b = 0xFF;
 
-        self._draw();
+        self._draw(elapsed_ms);
     }
 
-    pub fn draw(&mut self) -> Option<(u32, u32)> {
-        let start = self.framerate.ready().ok()?;
+    pub fn draw(&mut self, elapsed_ms: &ElapsedMs) -> Option<(u32, u32)> {
+        let start = self.framerate.ready(elapsed_ms).ok()?;
 
         // TODO: warn if framerate is too fast for us to keep up. will need to keep track of the last time we drew
 
         // fill the light buffer
         // TODO: make it possible to call buffer seperate from draw
-        self._buffer();
+        self._buffer(elapsed_ms);
 
         // display
         // TODO! some drivers disable interrupts while they draw! this means we won't have an accurate ELAPSED_MS!
-        self._draw();
+        self._draw(elapsed_ms);
 
         // increment frames_drawn to advance our patterns
         self.frames_drawn += 1;
 
-        let time = self.framerate.now() - start;
+        let time = elapsed_ms.now() - start;
 
         Some((start, time))
     }

@@ -8,6 +8,7 @@ pub use smart_leds::hsv::{hsv2rgb, Hsv};
 pub use smart_leds::{colors, RGB8};
 pub use sunflower::Sunflower;
 
+use crate::timers::ElapsedMs;
 use crate::NUM_LEDS;
 
 const PHYSICAL_TO_FIBONACCI: [u8; NUM_LEDS] = [
@@ -87,5 +88,5 @@ const ANGLES: [u8; NUM_LEDS] = [
 ];
 
 pub trait Pattern {
-    fn draw(&mut self, leds: &mut [RGB8]);
+    fn draw(&mut self, now: u32, leds: &mut [RGB8]);
 }
