@@ -14,6 +14,20 @@
 //! TODO: theres a lot of casting between u8, u16, u32, and i16. I'm not sure it is all correct
 use smart_leds::RGB8;
 
+/*
+// TODO: use these and write impls for various mathmetical operations
+struct fract8(u8);
+struct sfract7(i8);
+struct fract16(u16);
+struct sfract15(i16);
+struct accum88(u16);
+struct saccum78(i16);
+struct accum1616(u32);
+struct saccum1516(i32);
+struct accum124(u16);
+struct saccum114(i32);
+*/
+
 /// beat88 generates a 16-bit 'sawtooth' wave at a given BPM,
 /// with BPM specified in Q8.8 fixed-point format; e.g.
 /// for this function, 120 BPM MUST BE specified as
@@ -28,7 +42,8 @@ use smart_leds::RGB8;
 /// The ratio 65536:60000 is 279.620266667:256; we'll call it 280:256.
 /// The conversion is accurate to about 0.05%, more or less,
 /// e.g. if you ask for "120 BPM", you'll get about "119.93".
-pub fn beat88(now: u32, bpm88: u16) -> u16 {
+/// TODO: bpm88 should be an accum88 instead of a u16
+pub fn beat88(bpm88: u16, now: u32) -> u16 {
     ((now * bpm88 as u32 * 280) >> 16) as u16
 }
 
@@ -38,9 +53,9 @@ pub fn beat88(now: u32, bpm88: u16) -> u16 {
 /// a Q8.8 fixed-point value; e.g. 120BPM must be
 /// specified as 120*256 = 30720.
 /// If you just want to specify "120", use beatsin16 or beatsin8.
-pub fn beatsin88(now: u32, bpm88: u16, low: u16, high: u16, phase_offset: u16) -> u16 {
+pub fn beatsin88(bpm88: u16, low: u16, high: u16, now: u32, phase_offset: u16) -> u16 {
     // uint16_t beat = beat88( beats_per_minute_88, timebase);
-    let beat = beat88(now, bpm88);
+    let beat = beat88(bpm88, now);
 
     // uint16_t beatsin = (sin16( beat + phase_offset) + 32768);
     let beat_sin = (sin16(beat + phase_offset) + 32767 + 1) as u16;
@@ -256,6 +271,16 @@ pub fn sin16(theta: u16) -> i16 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_beat88() {
+        assert_eq!(beat88(0, 0), 0);
+    }
+
+    #[test]
+    fn test_beatsin88() {
+        assert_eq!(beatsin88(0, 0, 0, 0, 0), 0);
+    }
 
     #[test]
     fn test_scale16() {

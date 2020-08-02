@@ -12,7 +12,6 @@ TODO: use https://docs.rs/microfft/0.3.0/microfft/ for sound reactive patterns?
 */
 use super::super::focalintent::*;
 use super::{Pattern, COORDS_X};
-use crate::timers::ElapsedMs;
 use smart_leds::hsv::{hsv2rgb, Hsv};
 use smart_leds::RGB8;
 
@@ -31,18 +30,18 @@ impl Pattern for Pride {
     fn draw(&mut self, now: u32, leds: &mut [RGB8]) {
         // TODO: figure out what all these numbers do and make it look good on two concentric rings
         // uint8_t sat8 = beatsin88(87, 220, 250);
-        let sat8 = beatsin88(now, 87, 220, 250, 0) as u8;
+        let sat8 = beatsin88(87, 220, 250, now, 0) as u8;
         // uint8_t brightdepth = beatsin88(341, 96, 224);
-        let brightdepth = beatsin88(now, 341, 96, 224, 0) as u8;
+        let brightdepth = beatsin88(341, 96, 224, now, 0) as u8;
         // uint16_t brightnessthetainc16 = beatsin88(203, (25 * 256), (40 * 256));
-        let brightnessthetainc16 = beatsin88(now, 203, 25 * 256, 40 * 256, 0);
+        let brightnessthetainc16 = beatsin88(203, 25 * 256, 40 * 256, now, 0);
         // uint8_t msmultiplier = beatsin88(147, 23, 60);
-        let msmultiplier = beatsin88(now, 147, 23, 60, 0);
+        let msmultiplier = beatsin88(147, 23, 60, now, 0);
 
         // uint16_t hue16 = sHue16;
         let mut hue16 = self.hue;
         // uint16_t hueinc16 = beatsin88(113, 1, 3000);
-        let hueinc16 = beatsin88(now, 113, 1, 3000, 0);
+        let hueinc16 = beatsin88(113, 1, 3000, now, 0);
 
         // uint16_t ms = network_ms; // this should keep everyone's lights looking the same
         // uint16_t deltams = ms - sLastMillis;
@@ -55,7 +54,7 @@ impl Pattern for Pride {
         self.pseudotime += deltams * msmultiplier;
 
         // sHue16 += deltams * beatsin88(400, 5, 9);
-        self.hue += deltams * beatsin88(now, 400, 5, 9, 0);
+        self.hue += deltams * beatsin88(400, 5, 9, now, 0);
 
         // uint16_t brightnesstheta16 = sPseudotime;
         let mut brightnesstheta16 = self.pseudotime;

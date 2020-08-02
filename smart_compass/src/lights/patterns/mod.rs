@@ -8,7 +8,6 @@ pub use smart_leds::hsv::{hsv2rgb, Hsv};
 pub use smart_leds::{colors, RGB8};
 pub use sunflower::Sunflower;
 
-use crate::timers::ElapsedMs;
 use crate::NUM_LEDS;
 
 const PHYSICAL_TO_FIBONACCI: [u8; NUM_LEDS] = [

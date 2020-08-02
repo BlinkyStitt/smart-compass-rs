@@ -21,7 +21,7 @@ arm-none-eabi-objcopy -O binary \
 # arduino didn't include an offset though so maybe it is properly detected
 # NOTE: if you don't have Arduino IDE installed, you can get bossac with `brew cask install bossa`
 # TODO: option to specify what port to use
-~/Library/Arduino15/packages/arduino/tools/bossac/1.7.0/bossac \
+~/Library/Arduino15/packages/arduino/tools/bossac/1.7.0-arduino3/bossac \
     -e -w -v -R \
     "../target/thumbv6m-none-eabi/release/$target_bin.bin"
 
