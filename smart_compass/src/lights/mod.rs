@@ -122,7 +122,7 @@ where
 
     #[cfg(feature = "lights_interrupt_free")]
     #[inline(always)]
-    fn _draw(&mut self, elapsed_ms: &ElapsedMs) -> u32{
+    fn _draw(&mut self, elapsed_ms: &ElapsedMs) -> u32 {
         let data = self.led_buffer;
 
         // correct the colors
@@ -143,7 +143,7 @@ where
             // TODO: this should probably be configurable
             elapsed_ms.increment_by(10);
         });
-        
+
         elapsed_ms.now() - start
     }
 

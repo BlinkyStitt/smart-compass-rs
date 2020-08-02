@@ -6,6 +6,7 @@ edition = "2018"
 readme = "README.md"
 
 [features]
+default = ["thumbv6"]
 thumbv6 = ["cortex-m"]
 lights_interrupt_free = ["cortex-m"]
 
