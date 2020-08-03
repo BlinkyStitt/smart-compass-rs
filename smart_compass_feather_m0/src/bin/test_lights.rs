@@ -256,11 +256,16 @@ const APP: () = {
 
         // TODO: reset the usb device?
 
+        // a moment of silence
         my_lights.draw_black(elapsed_ms);
-        elapsed_ms.block(200);
+        elapsed_ms.block(2000);
 
+        // rgb test
         my_lights.draw_test_pattern(elapsed_ms);
-        elapsed_ms.block(1000);
+        elapsed_ms.block(500);
+
+        my_lights.draw_black(elapsed_ms);
+        elapsed_ms.block(100);
 
         loop {
             if let Ok(now) = every_200_millis.ready(elapsed_ms) {

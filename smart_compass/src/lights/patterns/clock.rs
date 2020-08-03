@@ -23,7 +23,7 @@ impl Clock {
         }
     }
 
-    pub fn draw(
+    pub fn buffer(
         &mut self,
         elapsed_ms: &ElapsedMs,
         leds: &mut [RGB8],

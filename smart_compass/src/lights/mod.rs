@@ -114,7 +114,7 @@ where
                 */
                 self.pattern_sunflower.buffer(now, &mut self.led_buffer);
                 // self.pattern_pride.buffer(now, &mut self.led_buffer);
-                // self.pattern_clock.buffer(&mut self.led_buffer, 9.0, 30.0, 0.0);
+                // self.pattern_clock.buffer(elapsed_ms, &mut self.led_buffer, 9.0, 30.0, 0.0);
                 // self.pattern_waves.buffer(now, &mut self.led_buffer);
             }
         };

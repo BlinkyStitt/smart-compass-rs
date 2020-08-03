@@ -199,13 +199,15 @@ pub fn scale8_video() {
 }
 */
 
+// TODO: use frac8 for scale
 pub fn scale8(i: u8, scale: u8) -> u8 {
-    todo!("write scale8");
+    ((i as u16) * (1 + (scale as u16)) >> 8) as u8
 }
 
 /// scale a 16-bit unsigned value by a 16-bit value,
 /// considered as numerator of a fraction whose denominator
 /// is 65536. In other words, it computes i * (scale / 65536)
+// TODO: use frac16 for scale
 pub fn scale16(i: u16, scale: u16) -> u16 {
     ((i as u32) * (1 + (scale as u32)) / 65536) as u16
 }
