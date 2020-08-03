@@ -45,7 +45,7 @@ where
 
         // TODO: how should the clock get the time?
         let pattern_clock = patterns::Clock::new(240);
-        let pattern_pride = patterns::Pride::default();
+        let pattern_pride = patterns::Pride::new();
         let pattern_sunflower = patterns::Sunflower::new();
 
         Self {
@@ -109,7 +109,7 @@ where
                     );
                 }
                 */
-                self.pattern_sunflower.draw(now, &mut self.led_buffer);
+                self.pattern_pride.draw(now, &mut self.led_buffer);
 
                 // self.clock.drawAnalogClock(&mut self.led_buffer, 9.0, 30.0, 0.0);
             }

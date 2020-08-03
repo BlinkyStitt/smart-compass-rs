@@ -1,5 +1,4 @@
 use super::{hsv2rgb, Hsv, Pattern, PHYSICAL_TO_FIBONACCI, RGB8};
-use crate::timers::ElapsedMs;
 
 enum Direction {
     In,

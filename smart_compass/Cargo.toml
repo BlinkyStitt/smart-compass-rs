@@ -21,6 +21,7 @@ embedded-hal = "0.2"
 cortex-m = { version = "0.6", optional = true }
 
 blake2 = { version = "0.9", default-features = false }
+derive_more = "0.99"
 embedded-sdmmc = "0.3"
 heapless = "0.5"
 nb = "1.0"

@@ -15,16 +15,37 @@
 use smart_leds::RGB8;
 
 /*
+use derive_more::From;
+
 // TODO: use these and write impls for various mathmetical operations
+#[derive(From)]
 struct fract8(u8);
+
+#[derive(From)]
 struct sfract7(i8);
+
+#[derive(From)]
 struct fract16(u16);
+
+#[derive(From)]
 struct sfract15(i16);
+
+#[derive(From)]
 struct accum88(u16);
+
+#[derive(From)]
 struct saccum78(i16);
+
+#[derive(From)]
 struct accum1616(u32);
+
+#[derive(From)]
 struct saccum1516(i32);
+
+#[derive(From)]
 struct accum124(u16);
+
+#[derive(From)]
 struct saccum114(i32);
 */
 
