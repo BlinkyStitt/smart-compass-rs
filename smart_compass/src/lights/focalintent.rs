@@ -8,46 +8,50 @@
 //!  - http://fastled.io/docs/3.1/group__lib8tion.html
 //!  - http://fastled.io/docs/3.1/group___dimming.html
 //!  - http://fastled.io/docs/3.1/group___noise.html
+//!  - http://fastled.io/docs/3.1/lib8tion_8h_source.html
 //!
 //! TODO: "video" dimming like FastLED does?
 //!
 //! TODO: theres a lot of casting between u8, u16, u32, and i16. I'm not sure it is all correct
+use derive_more::From;
 use smart_leds::RGB8;
 
-/*
-use derive_more::From;
-
 // TODO: use these and write impls for various mathmetical operations
-#[derive(From)]
-struct fract8(u8);
+#[derive(Clone, Copy, From)]
+pub struct fract8(u8);
 
-#[derive(From)]
-struct sfract7(i8);
+#[derive(Clone, Copy, From)]
+pub struct sfract7(i8);
 
-#[derive(From)]
-struct fract16(u16);
+#[derive(Clone, Copy, From)]
+pub struct fract16(u16);
 
-#[derive(From)]
-struct sfract15(i16);
+#[derive(Clone, Copy, From)]
+pub struct sfract15(i16);
 
-#[derive(From)]
-struct accum88(u16);
+#[derive(Clone, Copy, From)]
+pub struct accum88(u16);
 
-#[derive(From)]
-struct saccum78(i16);
+impl From<accum88> for u32 {
+    fn from(a: accum88) -> u32 {
+        a.0 as u32
+    }
+}
 
-#[derive(From)]
-struct accum1616(u32);
+#[derive(Clone, Copy, From)]
+pub struct saccum78(i16);
 
-#[derive(From)]
-struct saccum1516(i32);
+#[derive(Clone, Copy, From)]
+pub struct accum1616(u32);
 
-#[derive(From)]
-struct accum124(u16);
+#[derive(Clone, Copy, From)]
+pub struct saccum1516(i32);
 
-#[derive(From)]
-struct saccum114(i32);
-*/
+#[derive(Clone, Copy, From)]
+pub struct accum124(u16);
+
+#[derive(Clone, Copy, From)]
+pub struct saccum114(i32);
 
 /// beat88 generates a 16-bit 'sawtooth' wave at a given BPM,
 /// with BPM specified in Q8.8 fixed-point format; e.g.
@@ -64,8 +68,8 @@ struct saccum114(i32);
 /// The conversion is accurate to about 0.05%, more or less,
 /// e.g. if you ask for "120 BPM", you'll get about "119.93".
 /// TODO: bpm88 should be an accum88 instead of a u16
-pub fn beat88(bpm88: u16, now: u32) -> u16 {
-    ((now * bpm88 as u32 * 280) >> 16) as u16
+pub fn beat88(bpm88: accum88, now: u32) -> u16 {
+    ((now * u32::from(bpm88) * 280) >> 16) as u16
 }
 
 /// beatsin88 generates a 16-bit sine wave at a given BPM,
@@ -74,9 +78,9 @@ pub fn beat88(bpm88: u16, now: u32) -> u16 {
 /// a Q8.8 fixed-point value; e.g. 120BPM must be
 /// specified as 120*256 = 30720.
 /// If you just want to specify "120", use beatsin16 or beatsin8.
-pub fn beatsin88(bpm88: u16, low: u16, high: u16, now: u32, phase_offset: u16) -> u16 {
+pub fn beatsin88(bpm: accum88, low: u16, high: u16, now: u32, phase_offset: u16) -> u16 {
     // uint16_t beat = beat88( beats_per_minute_88, timebase);
-    let beat = beat88(bpm88, now);
+    let beat = beat88(bpm, now);
 
     // uint16_t beatsin = (sin16( beat + phase_offset) + 32768);
     let beat_sin = (sin16(beat + phase_offset) + 32767 + 1) as u16;
@@ -152,20 +156,21 @@ pub fn inoise8() {
 
 // CRGB& nblend( CRGB& existing, const CRGB& overlay, fract8 amountOfOverlay )
 pub fn nblend(existing: &mut RGB8, overlay: &RGB8, amount_of_overlay: u8) {
-    if amount_of_overlay == 0 {
-        return;
+    match amount_of_overlay {
+        0 => {
+            // return the color unnchanged
+        }
+        255 => {
+            existing.r = overlay.r;
+            existing.g = overlay.g;
+            existing.b = overlay.b;
+        }
+        amount_of_overlay => {
+            existing.r = blend8(existing.r, overlay.r, amount_of_overlay);
+            existing.g = blend8(existing.g, overlay.g, amount_of_overlay);
+            existing.b = blend8(existing.b, overlay.b, amount_of_overlay);
+        }
     }
-
-    if amount_of_overlay == 255 {
-        existing.r = overlay.r;
-        existing.g = overlay.g;
-        existing.b = overlay.b;
-        return;
-    }
-
-    existing.r = blend8(existing.r, overlay.r, amount_of_overlay);
-    existing.g = blend8(existing.g, overlay.g, amount_of_overlay);
-    existing.b = blend8(existing.b, overlay.b, amount_of_overlay);
 }
 
 /*
@@ -295,12 +300,12 @@ mod tests {
 
     #[test]
     fn test_beat88() {
-        assert_eq!(beat88(0, 0), 0);
+        assert_eq!(beat88(0.into(), 0), 0);
     }
 
     #[test]
     fn test_beatsin88() {
-        assert_eq!(beatsin88(0, 0, 0, 0, 0), 0);
+        assert_eq!(beatsin88(0.into(), 0, 0, 0, 0), 0);
     }
 
     #[test]

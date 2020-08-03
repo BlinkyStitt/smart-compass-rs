@@ -11,7 +11,7 @@ TODO: use https://docs.rs/microfft/0.3.0/microfft/ for sound reactive patterns?
 
 */
 use super::super::focalintent::*;
-use super::{Pattern, COORDS_X};
+use super::{Pattern, COORDS_X, PHYSICAL_TO_FIBONACCI};
 use smart_leds::hsv::{hsv2rgb, Hsv};
 use smart_leds::RGB8;
 
@@ -22,22 +22,22 @@ pub struct Pride {
     pseudotime: u16,
     last_ms: u16,
     hue: u16,
-    saturation_bpm: u16,
+    saturation_bpm: accum88,
     saturation_min: u16,
     saturation_max: u16,
-    bright_depth_bpm: u16,
+    bright_depth_bpm: accum88,
     bright_depth_min: u16,
     bright_depth_max: u16,
-    bright_theta_inc_bpm: u16,
+    bright_theta_inc_bpm: accum88,
     bright_theta_inc_min: u16,
     bright_theta_inc_max: u16,
-    ms_multiplier_bpm: u16,
+    ms_multiplier_bpm: accum88,
     ms_multiplier_min: u16,
     ms_multiplier_max: u16,
-    hue_inc_bpm: u16,
+    hue_inc_bpm: accum88,
     hue_inc_min: u16,
     hue_inc_max: u16,
-    s_hue_bpm: u16,
+    s_hue_bpm: accum88,
     s_hue_min: u16,
     s_hue_max: u16,
 }
@@ -48,22 +48,22 @@ impl Pride {
             pseudotime: 0,
             last_ms: 0,
             hue: 0,
-            saturation_bpm: 87,
+            saturation_bpm: 87.into(),
             saturation_min: 220,
             saturation_max: 250,
-            bright_depth_bpm: 341,
+            bright_depth_bpm: 341.into(),
             bright_depth_min: 96,
             bright_depth_max: 224,
-            bright_theta_inc_bpm: 203,
+            bright_theta_inc_bpm: 203.into(),
             bright_theta_inc_min: 25 * 256,
             bright_theta_inc_max: 40 * 256,
-            ms_multiplier_bpm: 147,
+            ms_multiplier_bpm: 147.into(),
             ms_multiplier_min: 23,
             ms_multiplier_max: 60,
-            hue_inc_bpm: 113,
+            hue_inc_bpm: 113.into(),
             hue_inc_min: 1,
             hue_inc_max: 3000,
-            s_hue_bpm: 400,
+            s_hue_bpm: 400.into(),
             s_hue_min: 5,
             s_hue_max: 9,
         }
@@ -131,7 +131,7 @@ impl Pattern for Pride {
         let mut bright_theta = self.pseudotime;
 
         // for (uint16_t i = 0; i < num_LEDs; i++) {
-        for i in COORDS_X.iter().cloned() {
+        for i in PHYSICAL_TO_FIBONACCI.iter().cloned() {
             // hue16 += hueinc16;
             hue16 += hueinc16;
             // uint8_t hue8 = hue16 / 256;
