@@ -22,6 +22,7 @@ pub struct Lights<SmartLeds: SmartLedsWrite> {
     pattern_clock: patterns::Clock,
     pattern_pride: patterns::Pride,
     pattern_sunflower: patterns::Sunflower,
+    pattern_waves: patterns::Waves,
 }
 
 impl<SmartLeds: SmartLedsWrite> Lights<SmartLeds>
@@ -47,6 +48,7 @@ where
         let pattern_clock = patterns::Clock::new(240);
         let pattern_pride = patterns::Pride::new();
         let pattern_sunflower = patterns::Sunflower::new();
+        let pattern_waves = patterns::Waves::new();
 
         Self {
             brightness,
@@ -58,6 +60,7 @@ where
             pattern_clock,
             pattern_pride,
             pattern_sunflower,
+            pattern_waves,
         }
     }
 
@@ -109,9 +112,10 @@ where
                     );
                 }
                 */
-                // self.pattern_sunflower.draw(now, &mut self.led_buffer);
-                self.pattern_pride.draw(now, &mut self.led_buffer);
-                // self.pattern_clock.draw(&mut self.led_buffer, 9.0, 30.0, 0.0);
+                self.pattern_sunflower.buffer(now, &mut self.led_buffer);
+                // self.pattern_pride.buffer(now, &mut self.led_buffer);
+                // self.pattern_clock.buffer(&mut self.led_buffer, 9.0, 30.0, 0.0);
+                // self.pattern_waves.buffer(now, &mut self.led_buffer);
             }
         };
 

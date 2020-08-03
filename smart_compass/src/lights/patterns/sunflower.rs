@@ -21,7 +21,7 @@ impl Sunflower {
 
 impl Pattern for Sunflower {
     /// TODO: fastled did something special for rainbows. do the same here
-    fn draw(&mut self, now: u32, leds: &mut [RGB8]) {
+    fn buffer(&mut self, now: u32, leds: &mut [RGB8]) {
         // divide to slow down the animation.
         // TODO: or we could advance by 1 per frame
         let now = now / 30;

@@ -199,6 +199,10 @@ pub fn scale8_video() {
 }
 */
 
+pub fn scale8(i: u8, scale: u8) -> u8 {
+    todo!("write scale8");
+}
+
 /// scale a 16-bit unsigned value by a 16-bit value,
 /// considered as numerator of a fraction whose denominator
 /// is 65536. In other words, it computes i * (scale / 65536)

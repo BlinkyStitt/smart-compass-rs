@@ -11,14 +11,14 @@ TODO: use https://docs.rs/microfft/0.3.0/microfft/ for sound reactive patterns?
 
 */
 use super::super::focalintent::*;
-use super::{Pattern, COORDS_X, PHYSICAL_TO_FIBONACCI};
+use super::Pattern;
 use smart_leds::hsv::{hsv2rgb, Hsv};
 use smart_leds::RGB8;
 
 // Draws rainbows with an ever-changing, widely-varying set of parameters.
 // https://gist.github.com/kriegsman/964de772d64c502760e5
 // TODO: instead of u16s, use proper types
-pub struct Pride {
+pub struct Waves {
     pseudotime: u16,
     last_ms: u16,
     hue: u16,
@@ -42,7 +42,7 @@ pub struct Pride {
     s_hue_max: u16,
 }
 
-impl Pride {
+impl Waves {
     pub fn new() -> Self {
         Self {
             pseudotime: 0,
@@ -62,7 +62,7 @@ impl Pride {
             ms_multiplier_max: 60,
             hue_inc_bpm: 113u16.into(),
             hue_inc_min: 1,
-            hue_inc_max: 12,
+            hue_inc_max: 3072,
             s_hue_bpm: 2u16.into(),
             s_hue_min: 5,
             s_hue_max: 9,
@@ -70,13 +70,10 @@ impl Pride {
     }
 }
 
-impl Pattern for Pride {
+impl Pattern for Waves {
     /// TODO: this is not correct. write tests for beatsin88
     /// TODO: https://github.com/jasoncoon/esp8266-fastled-webserver/blob/fibonacci256/esp8266-fastled-webserver.ino#L1183
     fn buffer(&mut self, now: u32, leds: &mut [RGB8]) {
-        // TODO: figure out what all these numbers do and make it look good on two concentric rings
-        // TODO: the "official" pattern uses beatsin88 here, but that returns a u16, not a u8
-        // uint8_t sat8 = beatsin88(87, 220, 250);
         let sat8 = beatsin88(
             self.saturation_bpm,
             self.saturation_min,
@@ -85,7 +82,6 @@ impl Pattern for Pride {
             0,
         ) as u8;
 
-        // uint8_t brightdepth = beatsin88(341, 96, 224);
         let bright_depth = beatsin88(
             self.bright_depth_bpm,
             self.bright_depth_min,
@@ -94,7 +90,6 @@ impl Pattern for Pride {
             0,
         ) as u8;
 
-        // uint16_t brightnessthetainc16 = beatsin88(203, (25 * 256), (40 * 256));
         let bright_theta_inc = beatsin88(
             self.bright_theta_inc_bpm,
             self.bright_theta_inc_min,
@@ -103,7 +98,6 @@ impl Pattern for Pride {
             0,
         );
 
-        // uint8_t msmultiplier = beatsin88(147, 23, 60);
         let ms_multiplier = beatsin88(
             self.ms_multiplier_bpm,
             self.ms_multiplier_min,
@@ -112,52 +106,47 @@ impl Pattern for Pride {
             0,
         );
 
-        // uint16_t hue16 = sHue16;
         let mut hue16 = self.hue;
 
-        // uint16_t hueinc16 = beatsin88(113, 1, 3000);
         let hueinc16 = beatsin88(self.hue_inc_bpm, self.hue_inc_min, self.hue_inc_max, now, 0);
 
-        // uint16_t ms = network_ms; // this should keep everyone's lights looking the same
-        // uint16_t deltams = ms - sLastMillis;
         let deltams = (now as u16) - self.last_ms;
 
-        // sLastMillis = ms;
         self.last_ms = now as u16;
 
-        // sPseudotime += deltams * msmultiplier;
         self.pseudotime += deltams * ms_multiplier;
 
-        // sHue16 += deltams * beatsin88(400, 5, 9);
         self.hue += deltams * beatsin88(self.s_hue_bpm, self.s_hue_min, self.s_hue_max, now, 0);
 
-        // uint16_t brightnesstheta16 = sPseudotime;
         let mut bright_theta = self.pseudotime;
 
-        // for (uint16_t i = 0; i < num_LEDs; i++) {
-        for led in leds.iter_mut() {
-            // hue16 += hueinc16;
+        for led in leds.iter_mut().rev() {
+            // TODO: saturating or wrapping add?
             hue16 += hueinc16;
-            // uint8_t hue8 = hue16 / 256;
-            let hue8: u8 = (hue16 / 256) as u8;
 
-            // brightnesstheta16 += brightnessthetainc16;
+            // TODO: what are we doing to the hue here? why not just scale16 to get the index?
+            let h16_128: u16 = hue16 >> 7;
+
+            let hue8: u8 = if h16_128 & 0x100 != 0 {
+                255 - (h16_128 >> 1)
+            } else {
+                h16_128 >> 1
+            } as u8;
+
+            // TODO: saturating or wrapping add?
             bright_theta += bright_theta_inc;
-            // uint16_t b16 = sin16(brightnesstheta16) + 32768;
-            // TODO: better way to wrap around
-            // TODO: why does sin8 return a u8, but sin16 returns a i16? seems like it should be a u16
+
             let b16: u16 = (sin16(bright_theta).wrapping_add(32767).wrapping_add(1)) as u16;
 
-            // uint16_t bri16 = (uint32_t)((uint32_t)b16 * (uint32_t)b16) / 65536;
             let bri16 = (((b16 as u32) * (b16 as u32)) / 65536) as u16;
 
-            // uint8_t bri8 = (uint32_t)(((uint32_t)bri16) * brightdepth) / 65536;
             let mut bri8: u8 = (((bri16 as u32) * (bright_depth as u32)) / 65536) as u8;
 
-            // bri8 += (255 - brightdepth);
+            // TODO: saturating or wrapping add?
             bri8 += 255 - bright_depth;
 
-            // CRGB newcolor = CHSV(hue8, sat8, bri8);
+            // TODO: port ColorFromPalette and use it here
+            // let index: u8 = scale8(hue8, 240);
             let new_color = Hsv {
                 hue: hue8,
                 sat: sat8,
@@ -166,12 +155,6 @@ impl Pattern for Pride {
 
             let new_color = hsv2rgb(new_color);
 
-            // uint16_t pixelnumber = i;
-            // pixelnumber = (num_LEDs - 1) - pixelnumber;
-            // let pixel_number = i as usize;
-
-            // nblend(leds[pixelnumber], newcolor, 64);
-            // nblend(&mut leds[pixel_number], &new_color, 64);
             nblend(led, &new_color, 64);
         }
     }

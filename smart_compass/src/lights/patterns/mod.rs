@@ -1,12 +1,14 @@
 mod clock;
 mod pride;
 mod sunflower;
+mod waves;
 
 pub use clock::Clock;
 pub use pride::Pride;
 pub use smart_leds::hsv::{hsv2rgb, Hsv};
 pub use smart_leds::{colors, RGB8};
 pub use sunflower::Sunflower;
+pub use waves::Waves;
 
 use crate::NUM_LEDS;
 
@@ -87,5 +89,7 @@ const ANGLES: [u8; NUM_LEDS] = [
 ];
 
 pub trait Pattern {
-    fn draw(&mut self, now: u32, leds: &mut [RGB8]);
+    /// Draw your pattern
+    /// Patterns generally work best when they use the time rather than the frame count in their calculations
+    fn buffer(&mut self, now: u32, leds: &mut [RGB8]);
 }
