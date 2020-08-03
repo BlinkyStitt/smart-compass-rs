@@ -48,22 +48,22 @@ impl Pride {
             pseudotime: 0,
             last_ms: 0,
             hue: 0,
-            saturation_bpm: 87.into(),
+            saturation_bpm: 87u16.into(),
             saturation_min: 220,
             saturation_max: 250,
-            bright_depth_bpm: 341.into(),
+            bright_depth_bpm: 1u16.into(),
             bright_depth_min: 96,
             bright_depth_max: 224,
-            bright_theta_inc_bpm: 203.into(),
+            bright_theta_inc_bpm: 203u16.into(),
             bright_theta_inc_min: 25 * 256,
             bright_theta_inc_max: 40 * 256,
-            ms_multiplier_bpm: 147.into(),
+            ms_multiplier_bpm: 147u16.into(),
             ms_multiplier_min: 23,
             ms_multiplier_max: 60,
-            hue_inc_bpm: 113.into(),
+            hue_inc_bpm: 113u16.into(),
             hue_inc_min: 1,
-            hue_inc_max: 3000,
-            s_hue_bpm: 400.into(),
+            hue_inc_max: 12,
+            s_hue_bpm: 2u16.into(),
             s_hue_min: 5,
             s_hue_max: 9,
         }
@@ -84,6 +84,7 @@ impl Pattern for Pride {
             now,
             0,
         ) as u8;
+
         // uint8_t brightdepth = beatsin88(341, 96, 224);
         let bright_depth = beatsin88(
             self.bright_depth_bpm,
@@ -92,6 +93,7 @@ impl Pattern for Pride {
             now,
             0,
         ) as u8;
+
         // uint16_t brightnessthetainc16 = beatsin88(203, (25 * 256), (40 * 256));
         let bright_theta_inc = beatsin88(
             self.bright_theta_inc_bpm,
@@ -100,6 +102,7 @@ impl Pattern for Pride {
             now,
             0,
         );
+
         // uint8_t msmultiplier = beatsin88(147, 23, 60);
         let ms_multiplier = beatsin88(
             self.ms_multiplier_bpm,
@@ -111,12 +114,13 @@ impl Pattern for Pride {
 
         // uint16_t hue16 = sHue16;
         let mut hue16 = self.hue;
+
         // uint16_t hueinc16 = beatsin88(113, 1, 3000);
         let hueinc16 = beatsin88(self.hue_inc_bpm, self.hue_inc_min, self.hue_inc_max, now, 0);
 
         // uint16_t ms = network_ms; // this should keep everyone's lights looking the same
         // uint16_t deltams = ms - sLastMillis;
-        let deltams = now as u16 - self.last_ms;
+        let deltams = (now as u16) - self.last_ms;
 
         // sLastMillis = ms;
         self.last_ms = now as u16;
@@ -131,7 +135,7 @@ impl Pattern for Pride {
         let mut bright_theta = self.pseudotime;
 
         // for (uint16_t i = 0; i < num_LEDs; i++) {
-        for i in PHYSICAL_TO_FIBONACCI.iter().cloned() {
+        for led in leds.iter_mut() {
             // hue16 += hueinc16;
             hue16 += hueinc16;
             // uint8_t hue8 = hue16 / 256;
@@ -164,10 +168,11 @@ impl Pattern for Pride {
 
             // uint16_t pixelnumber = i;
             // pixelnumber = (num_LEDs - 1) - pixelnumber;
-            let pixel_number = i as usize;
+            // let pixel_number = i as usize;
 
             // nblend(leds[pixelnumber], newcolor, 64);
-            nblend(&mut leds[pixel_number], &new_color, 64);
+            // nblend(&mut leds[pixel_number], &new_color, 64);
+            nblend(led, &new_color, 64);
         }
     }
 }

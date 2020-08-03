@@ -29,12 +29,28 @@ pub struct fract16(u16);
 #[derive(Clone, Copy, From)]
 pub struct sfract15(i16);
 
+impl From<f32> for sfract15 {
+    fn from(f: f32) -> Self {
+        let f = (f * 32768.0) as i16;
+
+        sfract15(f)
+    }
+}
+
 #[derive(Clone, Copy, From)]
 pub struct accum88(u16);
 
+impl From<u8> for accum88 {
+    fn from(x: u8) -> accum88 {
+        let x = (x as u16) << 8;
+
+        x.into()
+    }
+}
+
 impl From<accum88> for u32 {
     fn from(a: accum88) -> u32 {
-        a.0 as u32
+        a.0.into()
     }
 }
 
@@ -83,7 +99,11 @@ pub fn beatsin88(bpm: accum88, low: u16, high: u16, now: u32, phase_offset: u16)
     let beat = beat88(bpm, now);
 
     // uint16_t beatsin = (sin16( beat + phase_offset) + 32768);
-    let beat_sin = (sin16(beat + phase_offset) + 32767 + 1) as u16;
+    let beat_sin = sin16(
+        beat.wrapping_add(phase_offset)
+            .wrapping_add(32767)
+            .wrapping_add(1),
+    ) as u16;
 
     // uint16_t rangewidth = highest - lowest;
     let range_width = high - low;
@@ -297,15 +317,42 @@ pub fn sin16(theta: u16) -> i16 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use smart_leds::colors::{BLACK, WHITE};
+
+    #[test]
+    fn test_nblend() {
+        let mut led;
+        let mut expected;
+
+        led = BLACK;
+        expected = BLACK;
+        nblend(&mut led, &WHITE, 0);
+        assert_eq!(led, expected);
+
+        led = BLACK;
+        expected = WHITE;
+        nblend(&mut led, &WHITE, 255);
+        assert_eq!(led, expected);
+
+        led = BLACK;
+        expected = RGB8 {
+            r: 0x80,
+            g: 0x80,
+            b: 0x80,
+        };
+        nblend(&mut led, &WHITE, 128);
+        assert_eq!(led, expected);
+    }
 
     #[test]
     fn test_beat88() {
-        assert_eq!(beat88(0.into(), 0), 0);
+        assert_eq!(beat88(30u8.into(), 0), 0);
+        // TODO: test more
     }
 
     #[test]
     fn test_beatsin88() {
-        assert_eq!(beatsin88(0.into(), 0, 0, 0, 0), 0);
+        assert_eq!(beatsin88(30u8.into(), 0, 0, 0, 0), 0);
     }
 
     #[test]

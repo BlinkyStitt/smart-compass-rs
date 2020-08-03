@@ -109,8 +109,8 @@ where
                     );
                 }
                 */
-                self.pattern_sunflower.draw(now, &mut self.led_buffer);
-                // self.pattern_pride.draw(now, &mut self.led_buffer);
+                // self.pattern_sunflower.draw(now, &mut self.led_buffer);
+                self.pattern_pride.draw(now, &mut self.led_buffer);
                 // self.pattern_clock.draw(&mut self.led_buffer, 9.0, 30.0, 0.0);
             }
         };
