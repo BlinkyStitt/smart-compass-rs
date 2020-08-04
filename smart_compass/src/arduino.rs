@@ -1,7 +1,7 @@
 //
+use num::Num;
 
-/// TODO: use generics
-pub fn constrain(x: u8, low: u8, high: u8) -> u8 {
+pub fn constrain<N: Num + core::cmp::PartialOrd>(x: N, low: N, high: N) -> N {
     if x <= low {
         return low;
     }
@@ -11,6 +11,6 @@ pub fn constrain(x: u8, low: u8, high: u8) -> u8 {
     x
 }
 
-pub fn map<N: num::Num + Copy>(x: N, in_min: N, in_max: N, out_min: N, out_max: N) -> N {
+pub fn map<N: Num + Copy>(x: N, in_min: N, in_max: N, out_min: N, out_max: N) -> N {
     return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }

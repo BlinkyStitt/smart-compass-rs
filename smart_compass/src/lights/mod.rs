@@ -20,6 +20,7 @@ pub struct Lights<SmartLeds: SmartLedsWrite> {
 
     // TODO: think about this more
     pattern_clock: patterns::Clock,
+    pattern_pacman: patterns::PacMan,
     pattern_pride: patterns::Pride,
     pattern_sunflower: patterns::Sunflower,
     pattern_test_map: patterns::TestMap,
@@ -48,6 +49,7 @@ where
 
         let pattern_compass = patterns::Compass {};
         let pattern_clock = patterns::Clock::new(240);
+        let pattern_pacman = patterns::PacMan::new();
         let pattern_pride = patterns::Pride::new();
         let pattern_sunflower = patterns::Sunflower::new();
         let pattern_test_map = patterns::TestMap::new();
@@ -62,6 +64,7 @@ where
             orientation,
             pattern_compass,
             pattern_clock,
+            pattern_pacman,
             pattern_pride,
             pattern_sunflower,
             pattern_test_map,
@@ -139,7 +142,8 @@ where
                 // self.pattern_sunflower.buffer(now, &mut self.led_buffer);
                 // self.pattern_pride.buffer(now, &mut self.led_buffer);
                 // self.pattern_waves.buffer(now, &mut self.led_buffer);
-                self.pattern_test_map.buffer(now, &mut self.led_buffer);
+                // self.pattern_test_map.buffer(now, &mut self.led_buffer);
+                self.pattern_pacman.buffer(now, &mut self.led_buffer);
             }
         };
 

@@ -400,7 +400,13 @@ const APP: () = {
 
         let elapsed_ms = ELAPSED_MS.as_ref().unwrap();
 
+        // rgb test
         my_lights.draw_test_pattern(elapsed_ms);
+        elapsed_ms.block(500);
+
+        // a moment of silence
+        my_lights.draw_black(elapsed_ms);
+        elapsed_ms.block(1500);
 
         // TODO: read this from the SD
         let my_peer_id: usize = 1;

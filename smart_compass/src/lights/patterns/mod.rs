@@ -1,5 +1,6 @@
 mod clock;
 mod compass;
+mod pacman;
 mod pride;
 mod sunflower;
 mod tests;
@@ -7,6 +8,7 @@ mod waves;
 
 pub use self::clock::Clock;
 pub use self::compass::Compass;
+pub use self::pacman::PacMan;
 pub use self::pride::Pride;
 pub use self::sunflower::Sunflower;
 pub use self::tests::TestMap;

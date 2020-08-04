@@ -147,10 +147,16 @@ pub fn antialias_pixel_ar(
     end_radius: u8,
     color: RGB8,
 ) {
+    if d_angle == 0 {
+        return;
+    }
+
+    // TODO: unsure about saturating vs wrapping
+
     // uint16_t amax = qadd8(angle, dAngle);
-    let amax: u8 = angle.saturating_add(d_angle);
+    let amax: u8 = angle.wrapping_add(d_angle);
     // uint8_t amin = qsub8(angle, dAngle);
-    let amin: u8 = angle.saturating_sub(d_angle);
+    let amin: u8 = angle.wrapping_sub(d_angle);
 
     // for (uint16_t i = 0; i < NUM_LEDS; i++) {
     for i in 0..leds.len() {

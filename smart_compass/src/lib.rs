@@ -1,5 +1,6 @@
 #![no_std]
 
+pub mod arduino;
 pub mod battery;
 // pub mod compass;
 // pub mod config;

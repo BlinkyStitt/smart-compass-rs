@@ -42,10 +42,10 @@ pub type SPIMaster = hal::sercom::SPIMaster4<
 // static NETWORK_OFFSET: u16 = 125 + 225;
 
 /// 255 is BLINDINGLY bright!
-static DEFAULT_BRIGHTNESS: u8 = 64;
+static DEFAULT_BRIGHTNESS: u8 = 24;
 
 /// TODO: tune this
-static FRAMES_PER_SECOND: u8 = 2;
+static FRAMES_PER_SECOND: u8 = 50;
 
 /// Quick and dirty way to log messages
 pub enum LogMessage {
@@ -59,6 +59,7 @@ const APP: () = {
         lights: MyLights,
         elapsed_ms: timers::ElapsedMs,
         elapsed_ms_timer: hal::timer::TimerCounter4,
+        every_200_millis: timers::EveryNMillis,
         red_led: hal::gpio::Pa17<hal::gpio::Output<hal::gpio::OpenDrain>>,
         usb_device: usb_device::device::UsbDevice<'static, hal::UsbBus>,
         usb_queue_tx: Producer<'static, LogMessage, U8, u8>,
@@ -223,7 +224,10 @@ const APP: () = {
             FRAMES_PER_SECOND,
         );
 
+        let every_200_millis = timers::EveryNMillis::new(&elapsed_ms, 200);
+
         init::LateResources {
+            every_200_millis,
             lights: my_lights,
             red_led,
             elapsed_ms,
@@ -238,11 +242,13 @@ const APP: () = {
     /// Do the thing
     #[idle(resources = [
         &elapsed_ms,
+        every_200_millis,
         lights,
         red_led,
         usb_queue_tx,
     ])]
     fn idle(c: idle::Context) -> ! {
+        let every_200_millis = c.resources.every_200_millis;
         let elapsed_ms = c.resources.elapsed_ms;
         let my_lights = c.resources.lights;
         let red_led = c.resources.red_led;
@@ -250,17 +256,14 @@ const APP: () = {
 
         // TODO: reset the usb device?
 
-        // rgb test
-        my_lights.draw_test_pattern(elapsed_ms);
-        elapsed_ms.block(800);
-
-        // a moment of silence
-        my_lights.draw_black(elapsed_ms);
-        elapsed_ms.block(1200);
-
         let mut fake_time = Time::try_from_hms(0, 0, 0).unwrap();
 
         loop {
+            // this is useful to know if the program has crashed
+            if let Ok(now) = every_200_millis.ready(elapsed_ms) {
+                red_led.toggle();
+            }
+
             if let Some((start, draw_time, total_time)) =
                 my_lights.draw(elapsed_ms, Some(&fake_time), &[None; MAX_PEERS])
             {

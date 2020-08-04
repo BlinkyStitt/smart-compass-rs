@@ -212,7 +212,6 @@ pub fn scale16(i: u16, scale: u16) -> u16 {
     ((i as u32) * (1 + (scale as u32)) / 65536) as u16
 }
 
-/*
 /// Fast 8-bit approximation of sin(x). This approximation never varies more than
 /// 2% from the floating point value you'd get by doing
 ///
@@ -221,13 +220,13 @@ pub fn scale16(i: u16, scale: u16) -> u16 {
 /// @param theta input angle from 0-255
 /// @returns sin of theta, value between 0 and 255
 pub fn sin8(theta: u8) -> u8 {
-    const B_M16_INTERLEAVE: [u8; 8] = [ 0, 49, 49, 41, 90, 27, 117, 10 ];
+    const B_M16_INTERLEAVE: [u8; 8] = [0, 49, 49, 41, 90, 27, 117, 10];
 
     // uint8_t offset = theta;
     let mut offset = theta;
     // if( theta & 0x40 ) {
     if theta & 0x40 != 0 {
-    //     offset = (uint8_t)255 - offset;
+        //     offset = (uint8_t)255 - offset;
         offset = 255 - offset;
     }
     // offset &= 0x3F; // 0..63
@@ -270,7 +269,6 @@ pub fn sin8(theta: u8) -> u8 {
     // return y;
     y
 }
-*/
 
 /// Fast 16-bit approximation of sin(x). This approximation never varies more than
 /// 0.69% from the floating point value you'd get by doing
