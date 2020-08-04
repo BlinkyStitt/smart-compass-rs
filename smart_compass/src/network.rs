@@ -18,7 +18,7 @@ enum Mode {
 }
 
 #[derive(Serialize, Deserialize, Copy, Clone)]
-pub struct CompassLocation {
+pub struct PeerLocation {
     network_hash: [u8; 16],
 
     peer_id: usize,
@@ -37,7 +37,7 @@ pub struct Message {
     tx_ms: u32,
 
     // TODO: enum for this instead
-    location: CompassLocation,
+    location: PeerLocation,
     // TODO: mac of the location message
 }
 
@@ -46,6 +46,8 @@ type MyRadio<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay>
     SpiError,
     PinError,
 >;
+
+pub type PeerLocations = [Option<(PeerLocation, usize)>; MAX_PEERS];
 
 pub struct Network<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay> {
     elapsed_ms: ElapsedMs,
@@ -60,7 +62,7 @@ pub struct Network<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, 
     my_hue: u8,
     my_saturation: u8,
     network_hash: [u8; 16],
-    locations: [Option<(CompassLocation, usize)>; MAX_PEERS],
+    locations: PeerLocations,
 }
 
 impl<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay>
@@ -142,7 +144,7 @@ where
                 *broadcast_at = 0;
             }
             None => {
-                let location = CompassLocation {
+                let location = PeerLocation {
                     network_hash: self.network_hash,
                     peer_id: self.my_peer_id,
                     last_updated_at,
@@ -242,5 +244,9 @@ where
 
     pub fn silicon_version(&mut self) -> u8 {
         self.radio.silicon_version().ok().unwrap()
+    }
+
+    pub fn locations(&self) -> &PeerLocations {
+        &self.locations
     }
 }

@@ -11,7 +11,7 @@ TODO: use https://docs.rs/microfft/0.3.0/microfft/ for sound reactive patterns?
 
 */
 use super::super::focalintent::*;
-use super::{Pattern, COORDS_X, PHYSICAL_TO_FIBONACCI};
+use super::Pattern;
 use smart_leds::hsv::{hsv2rgb, Hsv};
 use smart_leds::RGB8;
 

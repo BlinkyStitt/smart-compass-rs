@@ -19,7 +19,7 @@ use heapless::spsc::{Consumer, Producer, Queue};
 use numtoa::NumToA;
 use rtic::app;
 use smart_compass::time::{Duration, Time};
-use smart_compass::{lights, timers};
+use smart_compass::{lights, timers, MAX_PEERS};
 use usbd_serial::{SerialPort, USB_CLASS_CDC};
 use ws2812_timer_delay::Ws2812;
 
@@ -45,7 +45,7 @@ pub type SPIMaster = hal::sercom::SPIMaster4<
 static DEFAULT_BRIGHTNESS: u8 = 64;
 
 /// TODO: tune this
-static FRAMES_PER_SECOND: u8 = 50;
+static FRAMES_PER_SECOND: u8 = 2;
 
 /// Quick and dirty way to log messages
 pub enum LogMessage {
@@ -258,11 +258,11 @@ const APP: () = {
         my_lights.draw_black(elapsed_ms);
         elapsed_ms.block(1200);
 
-        let mut fake_time = Time::try_from_hms(9, 30, 0).unwrap();
+        let mut fake_time = Time::try_from_hms(0, 0, 0).unwrap();
 
         loop {
             if let Some((start, draw_time, total_time)) =
-                my_lights.draw(elapsed_ms, Some(&fake_time))
+                my_lights.draw(elapsed_ms, Some(&fake_time), &[None; MAX_PEERS])
             {
                 // usb_queue_tx
                 //     .enqueue(LogMessage::DrawTime(start, draw_time, total_time))

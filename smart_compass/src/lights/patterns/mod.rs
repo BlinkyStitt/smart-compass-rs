@@ -1,14 +1,18 @@
 mod clock;
+mod compass;
 mod pride;
 mod sunflower;
+mod tests;
 mod waves;
 
-pub use clock::Clock;
-pub use pride::Pride;
+pub use self::clock::Clock;
+pub use self::compass::Compass;
+pub use self::pride::Pride;
+pub use self::sunflower::Sunflower;
+pub use self::tests::TestMap;
+pub use self::waves::Waves;
 pub use smart_leds::hsv::{hsv2rgb, Hsv};
 pub use smart_leds::{colors, RGB8};
-pub use sunflower::Sunflower;
-pub use waves::Waves;
 
 use crate::NUM_LEDS;
 

@@ -1,8 +1,8 @@
 mod focalintent;
-mod networked;
 mod patterns;
 
 use self::patterns::Pattern;
+use crate::network::PeerLocations;
 use crate::timers::{ElapsedMs, EveryNMillis};
 use crate::NUM_LEDS;
 use accelerometer::Orientation;
@@ -22,7 +22,9 @@ pub struct Lights<SmartLeds: SmartLedsWrite> {
     pattern_clock: patterns::Clock,
     pattern_pride: patterns::Pride,
     pattern_sunflower: patterns::Sunflower,
+    pattern_test_map: patterns::TestMap,
     pattern_waves: patterns::Waves,
+    pattern_compass: patterns::Compass,
 }
 
 impl<SmartLeds: SmartLedsWrite> Lights<SmartLeds>
@@ -44,10 +46,11 @@ where
         let orientation = Orientation::Unknown;
         let last_orientation = Orientation::Unknown;
 
-        // TODO: how should the clock get the time?
+        let pattern_compass = patterns::Compass {};
         let pattern_clock = patterns::Clock::new(240);
         let pattern_pride = patterns::Pride::new();
         let pattern_sunflower = patterns::Sunflower::new();
+        let pattern_test_map = patterns::TestMap::new();
         let pattern_waves = patterns::Waves::new();
 
         Self {
@@ -57,9 +60,11 @@ where
             led_buffer: light_data,
             leds,
             orientation,
+            pattern_compass,
             pattern_clock,
             pattern_pride,
             pattern_sunflower,
+            pattern_test_map,
             pattern_waves,
         }
     }
@@ -73,7 +78,12 @@ where
     }
 
     // fill the buffer with the light data
-    fn _buffer(&mut self, elapsed_ms: &ElapsedMs, time: Option<&time::Time>) {
+    fn _buffer(
+        &mut self,
+        elapsed_ms: &ElapsedMs,
+        time: Option<&time::Time>,
+        peer_locations: &PeerLocations,
+    ) {
         // TODO: match or something to pick between a bunch of different patterns
         let orientation_changed = self.last_orientation == self.orientation;
 
@@ -84,8 +94,14 @@ where
                 todo!("flashlight pattern");
             }
             Orientation::FaceUp => {
+                // TODO: DEBUGGING! MOVE `Orientation::Unknown` to where it belongs
                 // render compass
-                todo!("compass pattern");
+                let now = elapsed_ms.now();
+
+                // TODO: if no peer locations, draw the loading patteern
+
+                self.pattern_compass
+                    .buffer(now, &mut self.led_buffer, peer_locations);
             }
             Orientation::PortraitDown => {
                 // render clock
@@ -122,16 +138,8 @@ where
                 */
                 // self.pattern_sunflower.buffer(now, &mut self.led_buffer);
                 // self.pattern_pride.buffer(now, &mut self.led_buffer);
-
-                if let Some(time) = time {
-                    self.pattern_clock
-                        .buffer(elapsed_ms, &mut self.led_buffer, time);
-                } else {
-                    // TODO: pattern for loading
-                    self.pattern_sunflower.buffer(now, &mut self.led_buffer);
-                }
-
                 // self.pattern_waves.buffer(now, &mut self.led_buffer);
+                self.pattern_test_map.buffer(now, &mut self.led_buffer);
             }
         };
 
@@ -232,6 +240,7 @@ where
         &mut self,
         elapsed_ms: &ElapsedMs,
         time: Option<&time::Time>,
+        peer_locations: &PeerLocations,
     ) -> Option<(u32, u32, u32)> {
         let start = self.framerate.ready(elapsed_ms).ok()?;
 
@@ -239,7 +248,7 @@ where
 
         // fill the light buffer
         // TODO: make it possible to call buffer seperate from draw
-        self._buffer(elapsed_ms, time);
+        self._buffer(elapsed_ms, time, peer_locations);
 
         // display
         // TODO! some drivers disable interrupts while they draw! this means we won't have an accurate ELAPSED_MS!
