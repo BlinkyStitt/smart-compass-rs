@@ -18,6 +18,7 @@ use heapless::consts::*;
 use heapless::spsc::{Consumer, Producer, Queue};
 use numtoa::NumToA;
 use rtic::app;
+use smart_compass::time::{Duration, Time};
 use smart_compass::{lights, timers};
 use usbd_serial::{SerialPort, USB_CLASS_CDC};
 use ws2812_timer_delay::Ws2812;
@@ -58,7 +59,6 @@ const APP: () = {
         lights: MyLights,
         elapsed_ms: timers::ElapsedMs,
         elapsed_ms_timer: hal::timer::TimerCounter4,
-        every_200_millis: timers::EveryNMillis,
         red_led: hal::gpio::Pa17<hal::gpio::Output<hal::gpio::OpenDrain>>,
         usb_device: usb_device::device::UsbDevice<'static, hal::UsbBus>,
         usb_queue_tx: Producer<'static, LogMessage, U8, u8>,
@@ -175,7 +175,6 @@ const APP: () = {
         elapsed_ms_timer.start(1.ms());
         elapsed_ms_timer.enable_interrupt();
 
-        // TODO: i can't figure out how to use rtic resources for this
         let elapsed_ms = timers::ElapsedMs::default();
 
         // setup USB serial for debug logging
@@ -224,10 +223,7 @@ const APP: () = {
             FRAMES_PER_SECOND,
         );
 
-        let every_200_millis = timers::EveryNMillis::new(&elapsed_ms, 200);
-
         init::LateResources {
-            every_200_millis,
             lights: my_lights,
             red_led,
             elapsed_ms,
@@ -242,53 +238,40 @@ const APP: () = {
     /// Do the thing
     #[idle(resources = [
         &elapsed_ms,
-        every_200_millis,
         lights,
         red_led,
         usb_queue_tx,
     ])]
     fn idle(c: idle::Context) -> ! {
         let elapsed_ms = c.resources.elapsed_ms;
-        let every_200_millis = c.resources.every_200_millis;
         let my_lights = c.resources.lights;
         let red_led = c.resources.red_led;
         let usb_queue_tx = c.resources.usb_queue_tx;
 
         // TODO: reset the usb device?
 
-        // a moment of silence
-        my_lights.draw_black(elapsed_ms);
-        elapsed_ms.block(2000);
-
         // rgb test
         my_lights.draw_test_pattern(elapsed_ms);
-        elapsed_ms.block(500);
+        elapsed_ms.block(800);
 
+        // a moment of silence
         my_lights.draw_black(elapsed_ms);
-        elapsed_ms.block(100);
+        elapsed_ms.block(1200);
+
+        let mut fake_time = Time::try_from_hms(9, 30, 0).unwrap();
 
         loop {
-            if let Ok(now) = every_200_millis.ready(elapsed_ms) {
-                red_led.toggle();
+            if let Some((start, draw_time, total_time)) =
+                my_lights.draw(elapsed_ms, Some(&fake_time))
+            {
+                // usb_queue_tx
+                //     .enqueue(LogMessage::DrawTime(start, draw_time, total_time))
+                //     .ok()
+                //     .unwrap();
+                // // TODO: only set pending 1/2 the time? or if the queue is full? it's a waste of time if we aren't debugging
+                // rtic::pend(hal::pac::Interrupt::USB);
 
-                // TODO: we used to enqueue_unchecked because if the usb device isn't attached, we can't log to it
-                // TODO: but i think our interrupts run fast enough (and they will discard data)
-                usb_queue_tx
-                    .enqueue(LogMessage::RedLedToggle(now))
-                    .ok()
-                    .unwrap();
-
-                rtic::pend(hal::pac::Interrupt::USB);
-            }
-
-            if let Some((start, draw_time, total_time)) = my_lights.draw(elapsed_ms) {
-                usb_queue_tx
-                    .enqueue(LogMessage::DrawTime(start, draw_time, total_time))
-                    .ok()
-                    .unwrap();
-
-                // TODO: spawn a task to do the drawing?
-                rtic::pend(hal::pac::Interrupt::USB);
+                fake_time += Duration::new(1, 0);
             }
         }
     }

@@ -36,3 +36,9 @@ name = "test_lights"
 test = false
 bench = false
 required-features = ["usb"]
+
+[[bin]]
+name = "test_onboard_led"
+test = false
+bench = false
+required-features = ["usb"]

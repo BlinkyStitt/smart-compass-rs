@@ -73,7 +73,7 @@ where
     }
 
     // fill the buffer with the light data
-    fn _buffer(&mut self, elapsed_ms: &ElapsedMs) {
+    fn _buffer(&mut self, elapsed_ms: &ElapsedMs, time: Option<&time::Time>) {
         // TODO: match or something to pick between a bunch of different patterns
         let orientation_changed = self.last_orientation == self.orientation;
 
@@ -89,7 +89,15 @@ where
             }
             Orientation::PortraitDown => {
                 // render clock
-                todo!("clock pattern");
+                if let Some(time) = time {
+                    self.pattern_clock
+                        .buffer(elapsed_ms, &mut self.led_buffer, time);
+                } else {
+                    // TODO: pattern for loading
+                    let now = elapsed_ms.now();
+
+                    self.pattern_sunflower.buffer(now, &mut self.led_buffer);
+                }
             }
             Orientation::LandscapeUp
             | Orientation::LandscapeDown
@@ -112,9 +120,17 @@ where
                     );
                 }
                 */
-                self.pattern_sunflower.buffer(now, &mut self.led_buffer);
+                // self.pattern_sunflower.buffer(now, &mut self.led_buffer);
                 // self.pattern_pride.buffer(now, &mut self.led_buffer);
-                // self.pattern_clock.buffer(elapsed_ms, &mut self.led_buffer, 9.0, 30.0, 0.0);
+
+                if let Some(time) = time {
+                    self.pattern_clock
+                        .buffer(elapsed_ms, &mut self.led_buffer, time);
+                } else {
+                    // TODO: pattern for loading
+                    self.pattern_sunflower.buffer(now, &mut self.led_buffer);
+                }
+
                 // self.pattern_waves.buffer(now, &mut self.led_buffer);
             }
         };
@@ -192,7 +208,7 @@ where
         self.led_buffer[4].b = 0xFF;
         self.led_buffer[5].b = 0xFF;
 
-        // 3 white spread out
+        // 4 white spread out
         self.led_buffer[6].r = 0xFF;
         self.led_buffer[6].g = 0xFF;
         self.led_buffer[6].b = 0xFF;
@@ -201,6 +217,10 @@ where
         self.led_buffer[8].g = 0xFF;
         self.led_buffer[8].b = 0xFF;
 
+        self.led_buffer[10].r = 0xFF;
+        self.led_buffer[10].g = 0xFF;
+        self.led_buffer[10].b = 0xFF;
+
         self.led_buffer[255].r = 0xFF;
         self.led_buffer[255].g = 0xFF;
         self.led_buffer[255].b = 0xFF;
@@ -208,14 +228,18 @@ where
         self._draw(elapsed_ms);
     }
 
-    pub fn draw(&mut self, elapsed_ms: &ElapsedMs) -> Option<(u32, u32, u32)> {
+    pub fn draw(
+        &mut self,
+        elapsed_ms: &ElapsedMs,
+        time: Option<&time::Time>,
+    ) -> Option<(u32, u32, u32)> {
         let start = self.framerate.ready(elapsed_ms).ok()?;
 
         // TODO: warn if framerate is too fast for us to keep up. will need to keep track of the last time we drew
 
         // fill the light buffer
         // TODO: make it possible to call buffer seperate from draw
-        self._buffer(elapsed_ms);
+        self._buffer(elapsed_ms, time);
 
         // display
         // TODO! some drivers disable interrupts while they draw! this means we won't have an accurate ELAPSED_MS!

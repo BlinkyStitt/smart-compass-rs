@@ -453,7 +453,7 @@ const APP: () = {
 
             my_lights.set_orientation(orientation);
 
-            my_lights.draw(elapsed_ms);
+            my_lights.draw(elapsed_ms, my_gps.try_time());
 
             if my_gps.receive() {
                 hprintln!("GPS received a sentence").unwrap();
@@ -470,7 +470,7 @@ const APP: () = {
                 }
             }
 
-            my_lights.draw(elapsed_ms);
+            my_lights.draw(elapsed_ms, my_gps.try_time());
 
             if my_gps.has_fix() {
                 hprintln!("GPS has fix").unwrap();
@@ -507,7 +507,7 @@ const APP: () = {
             }
 
             // draw again because the using radio can take a while
-            my_lights.draw(elapsed_ms);
+            my_lights.draw(elapsed_ms, my_gps.try_time());
 
             // TODO: fastLED.delay equivalent to improve brightness? make sure it doesn't block the radios!
         }

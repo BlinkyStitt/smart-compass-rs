@@ -10,6 +10,7 @@ pub mod storage;
 pub mod timers;
 
 pub use accelerometer;
+pub use time;
 
 // TODO: i'd like this to be configurable at runtime,
 pub const MAX_PEERS: usize = 5;

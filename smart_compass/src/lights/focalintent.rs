@@ -18,56 +18,56 @@ use smart_leds::RGB8;
 
 // TODO: use these and write impls for various mathmetical operations
 #[derive(Clone, Copy, From)]
-pub struct fract8(u8);
+pub struct Fract8(u8);
 
 #[derive(Clone, Copy, From)]
-pub struct sfract7(i8);
+pub struct SFract7(i8);
 
 #[derive(Clone, Copy, From)]
-pub struct fract16(u16);
+pub struct Fract16(u16);
 
 #[derive(Clone, Copy, From)]
-pub struct sfract15(i16);
+pub struct SFract15(i16);
 
-impl From<f32> for sfract15 {
+impl From<f32> for SFract15 {
     fn from(f: f32) -> Self {
         let f = (f * 32768.0) as i16;
 
-        sfract15(f)
+        SFract15(f)
     }
 }
 
 #[derive(Clone, Copy, From)]
-pub struct accum88(u16);
+pub struct Accum88(u16);
 
-impl From<u8> for accum88 {
-    fn from(x: u8) -> accum88 {
+impl From<u8> for Accum88 {
+    fn from(x: u8) -> Accum88 {
         let x = (x as u16) << 8;
 
         x.into()
     }
 }
 
-impl From<accum88> for u32 {
-    fn from(a: accum88) -> u32 {
+impl From<Accum88> for u32 {
+    fn from(a: Accum88) -> u32 {
         a.0.into()
     }
 }
 
 #[derive(Clone, Copy, From)]
-pub struct saccum78(i16);
+pub struct SAccum78(i16);
 
 #[derive(Clone, Copy, From)]
-pub struct accum1616(u32);
+pub struct Accum1616(u32);
 
 #[derive(Clone, Copy, From)]
-pub struct saccum1516(i32);
+pub struct SAccum1516(i32);
 
 #[derive(Clone, Copy, From)]
-pub struct accum124(u16);
+pub struct Accum124(u16);
 
 #[derive(Clone, Copy, From)]
-pub struct saccum114(i32);
+pub struct SAccum114(i32);
 
 /// beat88 generates a 16-bit 'sawtooth' wave at a given BPM,
 /// with BPM specified in Q8.8 fixed-point format; e.g.
@@ -84,7 +84,7 @@ pub struct saccum114(i32);
 /// The conversion is accurate to about 0.05%, more or less,
 /// e.g. if you ask for "120 BPM", you'll get about "119.93".
 /// TODO: bpm88 should be an accum88 instead of a u16
-pub fn beat88(bpm88: accum88, now: u32) -> u16 {
+pub fn beat88(bpm88: Accum88, now: u32) -> u16 {
     ((now * u32::from(bpm88) * 280) >> 16) as u16
 }
 
@@ -94,7 +94,7 @@ pub fn beat88(bpm88: accum88, now: u32) -> u16 {
 /// a Q8.8 fixed-point value; e.g. 120BPM must be
 /// specified as 120*256 = 30720.
 /// If you just want to specify "120", use beatsin16 or beatsin8.
-pub fn beatsin88(bpm: accum88, low: u16, high: u16, now: u32, phase_offset: u16) -> u16 {
+pub fn beatsin88(bpm: Accum88, low: u16, high: u16, now: u32, phase_offset: u16) -> u16 {
     // uint16_t beat = beat88( beats_per_minute_88, timebase);
     let beat = beat88(bpm, now);
 
