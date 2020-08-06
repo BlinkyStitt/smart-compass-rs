@@ -14,6 +14,7 @@
 //!
 //! TODO: theres a lot of casting between u8, u16, u32, and i16. I'm not sure it is all correct
 use derive_more::From;
+use micromath::F32Ext;
 use smart_leds::RGB8;
 
 // TODO: use these and write impls for various mathmetical operations
@@ -40,11 +41,26 @@ impl From<f32> for SFract15 {
 #[derive(Clone, Copy, From)]
 pub struct Accum88(u16);
 
+impl Accum88 {
+    /// TODO: test this
+    pub fn to_millis(self) -> u32 {
+        // 60k milliseconds per minute
+        // self.0 is beats_per_minute * 256. this allows for fractional bpm
+        60_000 * 256 / (self.0 as u32)
+    }
+}
+
 impl From<u8> for Accum88 {
     fn from(x: u8) -> Accum88 {
         let x = (x as u16) << 8;
 
         x.into()
+    }
+}
+
+impl From<Accum88> for u16 {
+    fn from(x: Accum88) -> u16 {
+        x.0
     }
 }
 
@@ -193,6 +209,20 @@ pub fn nblend(existing: &mut RGB8, overlay: &RGB8, amount_of_overlay: u8) {
     }
 }
 
+/// the triangle wave is the absolute value of the sawtooth wave
+/// TODO: do this without floats
+/// TODO: stricter type for "now" to ensure that it is the time in milliseconds?
+/// range of -1 to 1
+/// https://en.wikipedia.org/wiki/Triangle_wave
+pub fn triangle88(bpm88: Accum88, now: u32) -> f32 {
+    let p = bpm88.to_millis() as f32;
+
+    let x = now as f32;
+
+    // (2.0 / p) * ((x % p) - (p / 2.0)).abs() - 0.5
+    (x / p).cos().asin()
+}
+
 /*
 pub fn scale8_video() {
     todo!();
@@ -215,7 +245,7 @@ pub fn scale16(i: u16, scale: u16) -> u16 {
 /// Fast 8-bit approximation of sin(x). This approximation never varies more than
 /// 2% from the floating point value you'd get by doing
 ///
-///     float s = (sin(x) * 128.0) + 128;
+/// "float s = (sin(x) * 128.0) + 128;"
 ///
 /// @param theta input angle from 0-255
 /// @returns sin of theta, value between 0 and 255
@@ -324,6 +354,16 @@ mod tests {
     use smart_leds::colors::{BLACK, WHITE};
 
     #[test]
+    fn test_accum88() {
+        // 100 bpm = 600 ms
+        assert_eq!(Accum88::from(100u8).to_millis(), 600);
+        // 85 bpm = 705 ms
+        assert_eq!(Accum88::from(85u8).to_millis(), 705);
+        // 80 bpm = 700 ms
+        assert_eq!(Accum88::from(80u8).to_millis(), 750);
+    }
+
+    #[test]
     fn test_nblend() {
         let mut led;
         let mut expected;
@@ -359,6 +399,21 @@ mod tests {
         assert_eq!(beatsin88(30u8.into(), 0, 0, 0, 0), 0);
     }
 
+    /// TODO: test more. not sure these numbers are right
+    #[test]
+    fn test_triangle88() {
+        // TODO: float equality helper
+        assert_eq!(triangle88(30u8.into(), 0), 0.5);
+        assert_eq!(triangle88(30u8.into(), 250), 0.25000006);
+        assert_eq!(triangle88(30u8.into(), 500), 0.0);
+        assert_eq!(triangle88(30u8.into(), 666), -0.16599998);
+        assert_eq!(triangle88(30u8.into(), 1000), -0.5);
+        assert_eq!(triangle88(30u8.into(), 1500), 0.0);
+        assert_eq!(triangle88(30u8.into(), 2000), 0.5);
+        assert_eq!(triangle88(30u8.into(), 2100), 0.40000004);
+        assert_eq!(triangle88(30u8.into(), 2250), 0.25000006);
+        assert_eq!(triangle88(30u8.into(), 2500), 0.5);
+    }
     #[test]
     fn test_scale16() {
         assert_eq!(scale16(0, 0), 0);

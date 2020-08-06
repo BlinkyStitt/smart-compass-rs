@@ -24,6 +24,7 @@ blake2 = { version = "0.9", default-features = false }
 derive_more = "0.99"
 embedded-sdmmc = "0.3"
 heapless = "0.5"
+micromath = "*"
 nb = "1.0"
 num = { version = "0.3", default-features = false }
 numtoa = "0.2"

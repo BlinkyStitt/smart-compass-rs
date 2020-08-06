@@ -151,7 +151,7 @@ pub fn antialias_pixel_ar(
         return;
     }
 
-    // TODO: unsure about saturating vs wrapping
+    // TODO: unsure about saturating vs wrapping. this is broken now
 
     // uint16_t amax = qadd8(angle, dAngle);
     let amax: u8 = angle.wrapping_add(d_angle);
