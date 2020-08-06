@@ -106,8 +106,7 @@ where
                 self.pattern_compass
                     .buffer(now, &mut self.led_buffer, peer_locations);
             }
-            Orientation::PortraitDown
-            | Orientation::Unknown => {
+            Orientation::PortraitDown | Orientation::Unknown => {
                 // render clock
                 if let Some(time) = time {
                     self.pattern_clock
@@ -119,9 +118,7 @@ where
                     self.pattern_sunflower.buffer(now, &mut self.led_buffer);
                 }
             }
-            Orientation::LandscapeUp
-            | Orientation::LandscapeDown
-            | Orientation::PortraitUp => {
+            Orientation::LandscapeUp | Orientation::LandscapeDown | Orientation::PortraitUp => {
                 // render pretty lights
                 // TODO: lots of different patterns to choose from
                 let now = elapsed_ms.now();

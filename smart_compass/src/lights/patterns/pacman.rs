@@ -2,8 +2,8 @@ use super::{Pattern, ANGLES, PHYSICAL_TO_FIBONACCI, RGB8};
 use crate::arduino::map;
 use crate::lights::focalintent::{trianglewave, Accum88};
 use core::cmp::Ordering;
-use smart_leds::colors::{BLACK, YELLOW};
 use core::f32::consts::{FRAC_2_PI, PI};
+use smart_leds::colors::{BLACK, YELLOW};
 
 pub struct PacMan {
     bites_per_minute: Accum88,
@@ -56,7 +56,15 @@ pub fn angle_fill_centered(
     let (start_angle, _) = angle.overflowing_sub(width_1);
     let (end_angle, _) = angle.overflowing_add(width_2);
 
-    angle_fill(leds, start_angle, end_angle, start_radius, end_radius, inside_color, outside_color)
+    angle_fill(
+        leds,
+        start_angle,
+        end_angle,
+        start_radius,
+        end_radius,
+        inside_color,
+        outside_color,
+    )
 }
 
 pub fn angle_fill(

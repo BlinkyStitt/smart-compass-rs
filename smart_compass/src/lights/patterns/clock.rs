@@ -1,6 +1,6 @@
 use super::super::focalintent::*;
-use super::{ANGLES, FIBONACCI_TO_PHYSICAL, PHYSICAL_TO_FIBONACCI};
 use super::pacman::angle_fill_centered;
+use super::{ANGLES, FIBONACCI_TO_PHYSICAL, PHYSICAL_TO_FIBONACCI};
 use crate::timers::ElapsedMs;
 use core::cmp::Ordering;
 use smart_leds::{colors, RGB8};
@@ -53,9 +53,33 @@ impl Clock {
 
         fade_to_black_by(leds, self.background_fade);
 
-        angle_fill_centered(leds, self.second_angle, SECOND_WIDTH, 0, SECOND_RADIUS, &colors::BLUE, None);
-        angle_fill_centered(leds, self.minute_angle, MINUTE_WIDTH, 0, MINUTE_RADIUS, &colors::GREEN, None);
-        angle_fill_centered(leds, self.hour_angle, HOUR_WIDTH, 0, HOUR_RADIUS, &colors::RED, None);
+        angle_fill_centered(
+            leds,
+            self.second_angle,
+            SECOND_WIDTH,
+            0,
+            SECOND_RADIUS,
+            &colors::BLUE,
+            None,
+        );
+        angle_fill_centered(
+            leds,
+            self.minute_angle,
+            MINUTE_WIDTH,
+            0,
+            MINUTE_RADIUS,
+            &colors::GREEN,
+            None,
+        );
+        angle_fill_centered(
+            leds,
+            self.hour_angle,
+            HOUR_WIDTH,
+            0,
+            HOUR_RADIUS,
+            &colors::RED,
+            None,
+        );
 
         leds[0] = colors::RED;
     }

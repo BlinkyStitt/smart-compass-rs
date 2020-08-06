@@ -13,7 +13,7 @@
 //! TODO: "video" dimming like FastLED does?
 //!
 //! TODO: theres a lot of casting between u8, u16, u32, and i16. I'm not sure it is all correct
-use core::f32::consts::{PI};
+use core::f32::consts::PI;
 use derive_more::From;
 use micromath::F32Ext;
 use smart_leds::RGB8;
