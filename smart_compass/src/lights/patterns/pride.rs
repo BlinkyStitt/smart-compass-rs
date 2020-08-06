@@ -71,13 +71,13 @@ impl Pride {
 }
 
 impl Pattern for Pride {
-    /// TODO: this is not correct. write tests for beatsin88
+    /// TODO: this is not correct. write tests for beatsin
     /// TODO: https://github.com/jasoncoon/esp8266-fastled-webserver/blob/fibonacci256/esp8266-fastled-webserver.ino#L1183
     fn buffer(&mut self, now: u32, leds: &mut [RGB8]) {
         // TODO: figure out what all these numbers do and make it look good on two concentric rings
-        // TODO: the "official" pattern uses beatsin88 here, but that returns a u16, not a u8
-        // uint8_t sat8 = beatsin88(87, 220, 250);
-        let sat8 = beatsin88(
+        // TODO: the "official" pattern uses beatsin here, but that returns a u16, not a u8
+        // uint8_t sat8 = beatsin(87, 220, 250);
+        let sat8 = beatsin(
             self.saturation_bpm,
             self.saturation_min,
             self.saturation_max,
@@ -85,8 +85,8 @@ impl Pattern for Pride {
             0,
         ) as u8;
 
-        // uint8_t brightdepth = beatsin88(341, 96, 224);
-        let bright_depth = beatsin88(
+        // uint8_t brightdepth = beatsin(341, 96, 224);
+        let bright_depth = beatsin(
             self.bright_depth_bpm,
             self.bright_depth_min,
             self.bright_depth_max,
@@ -94,8 +94,8 @@ impl Pattern for Pride {
             0,
         ) as u8;
 
-        // uint16_t brightnessthetainc16 = beatsin88(203, (25 * 256), (40 * 256));
-        let bright_theta_inc = beatsin88(
+        // uint16_t brightnessthetainc16 = beatsin(203, (25 * 256), (40 * 256));
+        let bright_theta_inc = beatsin(
             self.bright_theta_inc_bpm,
             self.bright_theta_inc_min,
             self.bright_theta_inc_max,
@@ -103,8 +103,8 @@ impl Pattern for Pride {
             0,
         );
 
-        // uint8_t msmultiplier = beatsin88(147, 23, 60);
-        let ms_multiplier = beatsin88(
+        // uint8_t msmultiplier = beatsin(147, 23, 60);
+        let ms_multiplier = beatsin(
             self.ms_multiplier_bpm,
             self.ms_multiplier_min,
             self.ms_multiplier_max,
@@ -115,8 +115,8 @@ impl Pattern for Pride {
         // uint16_t hue16 = sHue16;
         let mut hue16 = self.hue;
 
-        // uint16_t hueinc16 = beatsin88(113, 1, 3000);
-        let hueinc16 = beatsin88(self.hue_inc_bpm, self.hue_inc_min, self.hue_inc_max, now, 0);
+        // uint16_t hueinc16 = beatsin(113, 1, 3000);
+        let hueinc16 = beatsin(self.hue_inc_bpm, self.hue_inc_min, self.hue_inc_max, now, 0);
 
         // uint16_t ms = network_ms; // this should keep everyone's lights looking the same
         // uint16_t deltams = ms - sLastMillis;
@@ -128,8 +128,8 @@ impl Pattern for Pride {
         // sPseudotime += deltams * msmultiplier;
         self.pseudotime += deltams * ms_multiplier;
 
-        // sHue16 += deltams * beatsin88(400, 5, 9);
-        self.hue += deltams * beatsin88(self.s_hue_bpm, self.s_hue_min, self.s_hue_max, now, 0);
+        // sHue16 += deltams * beatsin(400, 5, 9);
+        self.hue += deltams * beatsin(self.s_hue_bpm, self.s_hue_min, self.s_hue_max, now, 0);
 
         // uint16_t brightnesstheta16 = sPseudotime;
         let mut bright_theta = self.pseudotime;

@@ -13,9 +13,16 @@
 //! TODO: "video" dimming like FastLED does?
 //!
 //! TODO: theres a lot of casting between u8, u16, u32, and i16. I'm not sure it is all correct
+use core::f32::consts::{PI};
 use derive_more::From;
 use micromath::F32Ext;
 use smart_leds::RGB8;
+
+pub trait ToMillis<T> {
+    fn to_millis(self) -> T;
+}
+
+// TODO: ToSignedMillis?
 
 // TODO: use these and write impls for various mathmetical operations
 #[derive(Clone, Copy, From)]
@@ -41,9 +48,9 @@ impl From<f32> for SFract15 {
 #[derive(Clone, Copy, From)]
 pub struct Accum88(u16);
 
-impl Accum88 {
-    /// TODO: test this
-    pub fn to_millis(self) -> u32 {
+impl ToMillis<u32> for Accum88 {
+    /// TODO: should we have an actual type for millis?
+    fn to_millis(self) -> u32 {
         // 60k milliseconds per minute
         // self.0 is beats_per_minute * 256. this allows for fractional bpm
         60_000 * 256 / (self.0 as u32)
@@ -76,6 +83,14 @@ pub struct SAccum78(i16);
 #[derive(Clone, Copy, From)]
 pub struct Accum1616(u32);
 
+impl ToMillis<u64> for Accum1616 {
+    fn to_millis(self) -> u64 {
+        // 60k milliseconds per minute
+        // self.0 is beats_per_minute * 2^16. this allows for fractional bpm
+        60_000 * (u16::MAX as u64) / (self.0 as u64)
+    }
+}
+
 #[derive(Clone, Copy, From)]
 pub struct SAccum1516(i32);
 
@@ -100,19 +115,25 @@ pub struct SAccum114(i32);
 /// The conversion is accurate to about 0.05%, more or less,
 /// e.g. if you ask for "120 BPM", you'll get about "119.93".
 /// TODO: bpm88 should be an accum88 instead of a u16
-pub fn beat88(bpm88: Accum88, now: u32) -> u16 {
-    ((now * u32::from(bpm88) * 280) >> 16) as u16
+pub fn beat<BPM>(bpm: BPM, now: u32) -> u16
+where
+    BPM: ToMillis<u32>,
+{
+    ((now * bpm.to_millis() * 280) >> 16) as u16
 }
 
-/// beatsin88 generates a 16-bit sine wave at a given BPM,
+/// beatsin generates a 16-bit sine wave at a given BPM,
 /// that oscillates within a given range.
 /// For this function, BPM MUST BE SPECIFIED as
 /// a Q8.8 fixed-point value; e.g. 120BPM must be
 /// specified as 120*256 = 30720.
 /// If you just want to specify "120", use beatsin16 or beatsin8.
-pub fn beatsin88(bpm: Accum88, low: u16, high: u16, now: u32, phase_offset: u16) -> u16 {
+pub fn beatsin<BPM>(bpm: BPM, low: u16, high: u16, now: u32, phase_offset: u16) -> u16
+where
+    BPM: ToMillis<u32>,
+{
     // uint16_t beat = beat88( beats_per_minute_88, timebase);
-    let beat = beat88(bpm, now);
+    let beat = beat(bpm, now);
 
     // uint16_t beatsin = (sin16( beat + phase_offset) + 32768);
     let beat_sin = sin16(
@@ -212,15 +233,18 @@ pub fn nblend(existing: &mut RGB8, overlay: &RGB8, amount_of_overlay: u8) {
 /// the triangle wave is the absolute value of the sawtooth wave
 /// TODO: do this without floats
 /// TODO: stricter type for "now" to ensure that it is the time in milliseconds?
-/// range of -1 to 1
+/// range of -pi/2 to pi/2
 /// https://en.wikipedia.org/wiki/Triangle_wave
-pub fn triangle88(bpm88: Accum88, now: u32) -> f32 {
-    let p = bpm88.to_millis() as f32;
+/// TODO: do this without floats
+pub fn trianglewave<BPM>(bpm: BPM, now: u32) -> f32
+where
+    BPM: ToMillis<u32>,
+{
+    let p = bpm.to_millis() as f32;
 
-    let x = now as f32;
+    let t = now as f32;
 
-    // (2.0 / p) * ((x % p) - (p / 2.0)).abs() - 0.5
-    (x / p).cos().asin()
+    (2.0 * PI / p * t).sin().asin()
 }
 
 /*
@@ -389,30 +413,36 @@ mod tests {
     }
 
     #[test]
-    fn test_beat88() {
-        assert_eq!(beat88(30u8.into(), 0), 0);
+    fn test_beat() {
+        let bpm_30 = Accum88::from(30u8);
+
+        assert_eq!(beat(bpm_30, 0), 0);
         // TODO: test more
     }
 
     #[test]
-    fn test_beatsin88() {
-        assert_eq!(beatsin88(30u8.into(), 0, 0, 0, 0), 0);
+    fn test_beatsin() {
+        let bpm_30 = Accum88::from(30u8);
+
+        assert_eq!(beatsin(bpm_30, 0, 0, 0, 0), 0);
     }
 
     /// TODO: test more. not sure these numbers are right
     #[test]
-    fn test_triangle88() {
-        // TODO: float equality helper
-        assert_eq!(triangle88(30u8.into(), 0), 0.5);
-        assert_eq!(triangle88(30u8.into(), 250), 0.25000006);
-        assert_eq!(triangle88(30u8.into(), 500), 0.0);
-        assert_eq!(triangle88(30u8.into(), 666), -0.16599998);
-        assert_eq!(triangle88(30u8.into(), 1000), -0.5);
-        assert_eq!(triangle88(30u8.into(), 1500), 0.0);
-        assert_eq!(triangle88(30u8.into(), 2000), 0.5);
-        assert_eq!(triangle88(30u8.into(), 2100), 0.40000004);
-        assert_eq!(triangle88(30u8.into(), 2250), 0.25000006);
-        assert_eq!(triangle88(30u8.into(), 2500), 0.5);
+    fn test_trianglewave() {
+        // TODO: float equality helper?
+        let bpm_30 = Accum88::from(30u8);
+
+        assert_eq!(trianglewave(bpm_30, 0), 0.0);
+        assert_eq!(trianglewave(bpm_30, 250), 0.7853982);
+        assert_eq!(trianglewave(bpm_30, 500), 1.5707963);
+        assert_eq!(trianglewave(bpm_30, 666), 1.049292);
+        assert_eq!(trianglewave(bpm_30, 1000), -0.00000008742278);
+        assert_eq!(trianglewave(bpm_30, 1500), -1.5707963);
+        assert_eq!(trianglewave(bpm_30, 2000), 0.00000017484555);
+        assert_eq!(trianglewave(bpm_30, 2100), 0.31415954);
+        assert_eq!(trianglewave(bpm_30, 2250), 0.7853982);
+        assert_eq!(trianglewave(bpm_30, 2500), 1.5707963);
     }
     #[test]
     fn test_scale16() {
