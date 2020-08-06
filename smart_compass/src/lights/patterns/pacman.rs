@@ -1,4 +1,4 @@
-use super::{Pattern, ANGLES, RGB8};
+use super::{Pattern, ANGLES, PHYSICAL_TO_FIBONACCI, RGB8};
 use crate::arduino::map;
 use crate::lights::focalintent::{trianglewave, Accum88};
 use core::cmp::Ordering;
@@ -23,7 +23,7 @@ impl PacMan {
 impl Pattern for PacMan {
     fn buffer(&mut self, now: u32, leds: &mut [RGB8]) {
         // draw mouth
-        // TODO: i don't think triangle wave looks right. mouth stays
+        // TODO: i don't think the official pacman moves like a triangle wave. investigate more
         // TODO: have a "dying" state that makes the mouth fill the whole amount
         let mouth_width = map(
             trianglewave(self.bites_per_minute, now),
@@ -35,16 +35,18 @@ impl Pattern for PacMan {
 
         // TODO: start_angle needs to change
         // TODO: have a "direction" that changes angle from 0 to 128
-        angle_fill_centered(leds, 0, mouth_width, &BLACK, Some(&YELLOW));
+        angle_fill_centered(leds, 0, mouth_width, 0, 255, &BLACK, Some(&YELLOW));
 
         // TODO: draw eye
     }
 }
 
-fn angle_fill_centered(
+pub fn angle_fill_centered(
     leds: &mut [RGB8],
     angle: u8,
     width: u8,
+    start_radius: u8,
+    end_radius: u8,
     inside_color: &RGB8,
     outside_color: Option<&RGB8>,
 ) {
@@ -54,13 +56,15 @@ fn angle_fill_centered(
     let (start_angle, _) = angle.overflowing_sub(width_1);
     let (end_angle, _) = angle.overflowing_add(width_2);
 
-    angle_fill(leds, start_angle, end_angle, inside_color, outside_color)
+    angle_fill(leds, start_angle, end_angle, start_radius, end_radius, inside_color, outside_color)
 }
 
-fn angle_fill(
+pub fn angle_fill(
     leds: &mut [RGB8],
     start_angle: u8,
     end_angle: u8,
+    start_radius: u8,
+    end_radius: u8,
     inside_color: &RGB8,
     outside_color: Option<&RGB8>,
 ) {
@@ -86,6 +90,20 @@ fn angle_fill(
                 (Some(true), Ordering::Greater, Ordering::Greater) => true,
                 _ => false,
             }
+        };
+
+        let is_inside = if is_inside {
+            // TODO: think about this more
+            let i_radius: u8 = PHYSICAL_TO_FIBONACCI[i];
+
+            // if (ro <= endRadius && ro >= startRadius) {
+            if i_radius > end_radius || i_radius < start_radius {
+                false
+            } else {
+                true
+            }
+        } else {
+            false
         };
 
         if is_inside {

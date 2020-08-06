@@ -1,5 +1,6 @@
 use super::super::focalintent::*;
 use super::{ANGLES, FIBONACCI_TO_PHYSICAL, PHYSICAL_TO_FIBONACCI};
+use super::pacman::angle_fill_centered;
 use crate::timers::ElapsedMs;
 use core::cmp::Ordering;
 use smart_leds::{colors, RGB8};
@@ -33,10 +34,13 @@ impl Clock {
         let hour = (time.hour() as f32) + (minute / 60.0);
 
         // TODO: move these
-        const HOUR_RADIUS: u8 = 96;
-        const MINUTE_RADIUS: u8 = 178;
+        const HOUR_RADIUS: u8 = 100;
+        const MINUTE_RADIUS: u8 = 166;
         const SECOND_RADIUS: u8 = 255;
-        const HAND_WIDTH: u8 = 8;
+
+        const HOUR_WIDTH: u8 = 18;
+        const MINUTE_WIDTH: u8 = 15;
+        const SECOND_WIDTH: u8 = 10;
 
         const DEGREES_PER_SECOND: f32 = 255.0 / 60.0;
         const DEGREES_PER_MINUTE: f32 = 255.0 / 60.0;
@@ -49,30 +53,9 @@ impl Clock {
 
         fade_to_black_by(leds, self.background_fade);
 
-        antialias_pixel_ar(
-            leds,
-            self.second_angle,
-            HAND_WIDTH,
-            0,
-            SECOND_RADIUS,
-            colors::BLUE,
-        );
-        antialias_pixel_ar(
-            leds,
-            self.minute_angle,
-            HAND_WIDTH,
-            0,
-            MINUTE_RADIUS,
-            colors::GREEN,
-        );
-        antialias_pixel_ar(
-            leds,
-            self.hour_angle,
-            HAND_WIDTH,
-            0,
-            HOUR_RADIUS,
-            colors::RED,
-        );
+        angle_fill_centered(leds, self.second_angle, SECOND_WIDTH, 0, SECOND_RADIUS, &colors::BLUE, None);
+        angle_fill_centered(leds, self.minute_angle, MINUTE_WIDTH, 0, MINUTE_RADIUS, &colors::GREEN, None);
+        angle_fill_centered(leds, self.hour_angle, HOUR_WIDTH, 0, HOUR_RADIUS, &colors::RED, None);
 
         leds[0] = colors::RED;
     }
@@ -194,6 +177,3 @@ pub fn antialias_pixel_ar(
         }
     }
 }
-
-// TODO: function similar to angle_fill_centered, but that also takes a radio
-// TODO: map similar to ANGLES but that has DISTANCES from 0 to something, maybe 12
