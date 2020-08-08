@@ -2,20 +2,21 @@ mod focalintent;
 mod patterns;
 
 use self::patterns::Pattern;
-use crate::network::PeerLocations;
+use crate::location::GpsData;
+use crate::network::NetworkData;
 use crate::timers::{ElapsedMs, EveryNMillis};
 use crate::NUM_LEDS;
 use accelerometer::Orientation;
+use embedded_hal::digital::v2::OutputPin;
 use smart_leds::{brightness, gamma, SmartLedsWrite, RGB8};
 
 /// TODO: better trait bounds?
 pub struct Lights<SmartLeds: SmartLedsWrite> {
-    brightness: u8,
-    framerate: EveryNMillis,
+    pub brightness: u8,
+    pub framerate: EveryNMillis,
+
     last_orientation: Orientation,
     leds: SmartLeds,
-    my_peer_id: Option<usize>,
-    orientation: Orientation,
 
     // TODO: use a Vec?
     led_buffer: [RGB8; NUM_LEDS],
@@ -47,7 +48,6 @@ where
 
         let framerate = EveryNMillis::new(elapsed_ms, framerate_ms);
 
-        let orientation = Orientation::Unknown;
         let last_orientation = Orientation::Unknown;
 
         let pattern_compass = patterns::Compass::new(3000.0);
@@ -64,8 +64,6 @@ where
             last_orientation,
             led_buffer: light_data,
             leds,
-            my_peer_id,
-            orientation,
             pattern_compass,
             pattern_clock,
             pattern_pacman,
@@ -76,31 +74,19 @@ where
         }
     }
 
-    pub fn set_brightness(&mut self, new_brightness: u8) {
-        self.brightness = new_brightness;
-    }
-
-    pub fn set_my_peer_id(&mut self, my_peer_id: usize) {
-        self.my_peer_id = Some(my_peer_id);
-    }
-
-    pub fn set_orientation(&mut self, new_orientation: Orientation) {
-        self.orientation = new_orientation;
-    }
-
     // fill the buffer with the light data
     fn _buffer(
         &mut self,
         elapsed_ms: &ElapsedMs,
-        time: Option<&time::Time>,
-        magnetic_variation: Option<&f32>,
-        peer_locations: &PeerLocations,
+        orientation: &Orientation,
+        gps_data: Option<&GpsData>,
+        network_data: Option<&NetworkData>,
     ) {
         // TODO: match or something to pick between a bunch of different patterns
-        let orientation_changed = self.last_orientation == self.orientation;
+        let orientation_changed = self.last_orientation == *orientation;
 
         // TODO: have a Pattern state machine that handles orientation and transitionary animations
-        match self.orientation {
+        match orientation {
             Orientation::FaceDown => {
                 // render flashlight
                 todo!("flashlight pattern");
@@ -112,13 +98,14 @@ where
 
                 // TODO: if no peer locations, draw the loading pattern
 
-                if let Some(my_peer_id) = self.my_peer_id {
+                let network_data = network_data.unwrap();
+
+                if network_data.my_peer_id != 0 {
                     self.pattern_compass.buffer(
                         now,
                         &mut self.led_buffer,
-                        magnetic_variation,
-                        my_peer_id,
-                        peer_locations,
+                        gps_data.unwrap(),
+                        network_data,
                     );
                 } else {
                     // TODO: pattern for loading
@@ -126,8 +113,10 @@ where
                 }
             }
             Orientation::PortraitDown | Orientation::Unknown => {
+                let gps_data = gps_data.unwrap();
+
                 // render clock
-                if let Some(time) = time {
+                if let Some(time) = &gps_data.time {
                     self.pattern_clock
                         .buffer(elapsed_ms, &mut self.led_buffer, time);
                 } else {
@@ -164,7 +153,7 @@ where
         };
 
         if orientation_changed {
-            self.last_orientation = self.orientation;
+            self.last_orientation = *orientation;
         }
     }
 
@@ -259,9 +248,9 @@ where
     pub fn draw(
         &mut self,
         elapsed_ms: &ElapsedMs,
-        time: Option<&time::Time>,
-        magnetic_variation: Option<&f32>,
-        peer_locations: &PeerLocations,
+        gps: Option<&GpsData>,
+        network: Option<&NetworkData>,
+        orientation: &Orientation,
     ) -> Option<(u32, u32, u32)> {
         let start = self.framerate.ready(elapsed_ms).ok()?;
 
@@ -269,7 +258,7 @@ where
 
         // fill the light buffer
         // TODO: make it possible to call buffer seperate from draw
-        self._buffer(elapsed_ms, time, magnetic_variation, peer_locations);
+        self._buffer(elapsed_ms, orientation, gps, network);
 
         // display
         // TODO! some drivers disable interrupts while they draw! this means we won't have an accurate ELAPSED_MS!

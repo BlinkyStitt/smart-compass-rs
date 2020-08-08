@@ -695,6 +695,7 @@ dependencies = [
 name = "smart_compass_feather_m0"
 version = "0.1.0"
 dependencies = [
+ "accelerometer 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "alloc-cortex-m 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "cortex-m 0.6.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "cortex-m-rt 0.6.12 (registry+https://github.com/rust-lang/crates.io-index)",

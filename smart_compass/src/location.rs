@@ -25,14 +25,14 @@ pub struct UltimateGps<SerialTx: embedded_hal::serial::Write<u8>, EnablePin: Out
     /// You will lose your fix if you disable the GPS and it will also take a long time to get fix back if you dont
     /// have the backup battery installed.
     enable_pin: EnablePin,
+    epoch: time::PrimitiveDateTime,
 
     // TODO: what size for buffer_len?
     sentence_buffer_len: usize,
     // TODO: what size? what's the longest sentence?
     sentence_buffer: [u8; 82],
 
-    epoch: time::PrimitiveDateTime,
-    data: GpsData,
+    pub data: GpsData,
 }
 
 pub struct UltimateGpsQueue<SerialRx: embedded_hal::serial::Read<u8>> {
@@ -258,11 +258,6 @@ impl<SerialTx: embedded_hal::serial::Write<u8>, EnablePin: OutputPin>
             Some(GpsQuality::Fix) | Some(GpsQuality::DifferentialFix) => true,
             _ => false,
         }
-    }
-
-    #[inline(always)]
-    pub fn data(&self) -> &GpsData {
-        &self.data
     }
 
     #[inline(always)]

@@ -288,7 +288,6 @@ const APP: () = {
         let my_saturation = 0;
 
         let my_network: MyNetwork<_> = network::Network::new(
-            elapsed_ms,
             radio_spi,
             rfm95_cs,
             rfm95_busy,
@@ -412,7 +411,7 @@ const APP: () = {
         // TODO: read this from the SD
         let my_peer_id = 0;
 
-        my_lights.set_my_peer_id(my_peer_id);
+        shared_spi_resources.network.data.my_peer_id = my_peer_id;
 
         // configure gps
         // get the version (PMTK_Q_RELEASE)
@@ -441,11 +440,11 @@ const APP: () = {
                 (false, _) => { /* no change */ }
                 (true, battery::BatteryStatus::Low) => {
                     hprintln!("Battery low").unwrap();
-                    my_lights.set_brightness(DEFAULT_BRIGHTNESS / 2);
+                    my_lights.brightness = DEFAULT_BRIGHTNESS / 2;
                 }
                 (true, battery::BatteryStatus::Ok) => {
                     hprintln!("Battery ok").unwrap();
-                    my_lights.set_brightness(DEFAULT_BRIGHTNESS);
+                    my_lights.brightness = DEFAULT_BRIGHTNESS;
                 }
             }
 
@@ -458,27 +457,19 @@ const APP: () = {
 
             // TODO: get the actual orientation from a sensor
             // TODO: should this be a global? should it happen on interrupt?
-            let orientation = Orientation::Unknown;
-
-            my_lights.set_orientation(orientation);
+            let orientation = &Orientation::Unknown;
 
             {
-                let gps_data = my_gps.data();
+                let gps_data = &my_gps.data;
+                let network_data = &shared_spi_resources.network.data;
 
-                my_lights.draw(
-                    elapsed_ms,
-                    gps_data.time.as_ref(),
-                    gps_data.magnetic_variation.as_ref(),
-                    shared_spi_resources.network.locations(),
-                );
+                my_lights.draw(elapsed_ms, Some(gps_data), Some(network_data), orientation);
             }
-
-            let mut gps_data;
 
             if my_gps.receive() {
                 hprintln!("GPS received a sentence").unwrap();
 
-                gps_data = my_gps.data();
+                let gps_data = &my_gps.data;
 
                 if let Some(last_updated_at) = gps_data.epoch_seconds {
                     if let Some(position) = &gps_data.position {
@@ -487,16 +478,12 @@ const APP: () = {
                             .save_my_location(last_updated_at, position);
                     }
                 }
-            } else {
-                gps_data = my_gps.data();
             }
 
-            my_lights.draw(
-                elapsed_ms,
-                gps_data.time.as_ref(),
-                gps_data.magnetic_variation.as_ref(),
-                shared_spi_resources.network.locations(),
-            );
+            let gps_data = &my_gps.data;
+            let network_data = &shared_spi_resources.network.data;
+
+            my_lights.draw(elapsed_ms, Some(gps_data), Some(network_data), orientation);
 
             if my_gps.has_fix() {
                 hprintln!("GPS has fix").unwrap();
@@ -514,9 +501,11 @@ const APP: () = {
                     // TODO: spend 50% the time with the radio asleep?
                     if broadcasting_peer_id == my_peer_id {
                         // my turn to broadcast
-                        shared_spi_resources
-                            .network
-                            .transmit(time_segment_id, broadcasted_peer_id);
+                        shared_spi_resources.network.transmit(
+                            &elapsed_ms,
+                            time_segment_id,
+                            broadcasted_peer_id,
+                        );
                     } else {
                         // listen for someone else
                         shared_spi_resources.network.try_receive();
@@ -533,12 +522,7 @@ const APP: () = {
             }
 
             // draw again because the using radio can take a while
-            my_lights.draw(
-                elapsed_ms,
-                gps_data.time.as_ref(),
-                gps_data.magnetic_variation.as_ref(),
-                shared_spi_resources.network.locations(),
-            );
+            my_lights.draw(elapsed_ms, Some(gps_data), Some(network_data), orientation);
 
             // TODO: fastLED.delay equivalent to improve brightness at low levels? make sure it doesn't block the radios!
         }

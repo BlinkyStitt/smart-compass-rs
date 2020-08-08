@@ -50,20 +50,21 @@ type MyRadio<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay>
 /// the usize is the broadcasted_at_id that this was last broadcast at. i don't love this pattern, but it keeps us from broadcasting a message multiple times in a short timespan
 pub type PeerLocations = [Option<(PeerLocation, usize)>; MAX_PEERS];
 
-pub struct Network<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay> {
-    elapsed_ms: ElapsedMs,
+#[derive(Default)]
+pub struct NetworkData {
+    pub my_peer_id: usize,
+    pub my_hue: u8,
+    pub my_saturation: u8,
+    pub network_hash: [u8; 16],
+    pub peer_locations: PeerLocations,
+}
 
+pub struct Network<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay> {
     /// TODO: use the radio::Radio trait and do Network<Radio>
     radio: MyRadio<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay>,
     current_mode: Mode,
     // hasher: VarBlake2s,
-    my_peer_id: usize,
-
-    // TODO: helpers to change hue/saturation?
-    my_hue: u8,
-    my_saturation: u8,
-    network_hash: [u8; 16],
-    locations: PeerLocations,
+    pub data: NetworkData,
 }
 
 impl<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay>
@@ -78,7 +79,6 @@ where
     Delay: embedded_hal::blocking::delay::DelayMs<u32>,
 {
     pub fn new(
-        elapsed_ms: ElapsedMs,
         spi: Spi,
         cs: CsPin,
         busy: BusyPin,
@@ -101,17 +101,18 @@ where
 
         // let hasher = VarBlake2s::new_keyed(network_key, 16);
 
-        let locations = Default::default();
-
-        Self {
-            elapsed_ms,
-            radio,
-            current_mode,
-            network_hash,
-            locations,
+        let data = NetworkData {
             my_peer_id,
             my_hue,
             my_saturation,
+            network_hash,
+            ..Default::default()
+        };
+
+        Self {
+            radio,
+            current_mode,
+            data,
         }
     }
 
@@ -119,24 +120,30 @@ where
     pub fn save_message(&mut self, message: Message) {
         let peer_id = message.location.peer_id as usize;
 
-        if peer_id == 0 && self.my_peer_id != 0 {
+        if peer_id == 0 {
+            // unconfigured. ignore this message
+            return;
+        }
+
+        if peer_id == 1 && self.data.my_peer_id != 1 {
             // set our millis timer to match the leader's timer
             // TODO: do this better. we have GPS. we should be able to have super accurate time without this
+            // TODO: maybe instead we should just use the oldest millis
             todo!();
         }
 
-        if let Some((old_location, _)) = &self.locations[peer_id] {
+        if let Some((old_location, _)) = &self.data.peer_locations[peer_id] {
             if old_location.last_updated_at >= message.location.last_updated_at {
                 // we already have this message (or a newer one)
                 return;
             }
         }
 
-        self.locations[peer_id] = Some((message.location, 0));
+        self.data.peer_locations[peer_id] = Some((message.location, 0));
     }
 
     pub fn save_my_location(&mut self, last_updated_at: u32, position: &GpsPosition) {
-        match &mut self.locations[self.my_peer_id] {
+        match &mut self.data.peer_locations[self.data.my_peer_id] {
             Some((compass_location, broadcast_at)) => {
                 compass_location.last_updated_at = last_updated_at;
                 compass_location.lat = position.lat;
@@ -146,21 +153,21 @@ where
             }
             None => {
                 let location = PeerLocation {
-                    network_hash: self.network_hash,
-                    peer_id: self.my_peer_id,
+                    network_hash: self.data.network_hash,
+                    peer_id: self.data.my_peer_id,
                     last_updated_at,
-                    hue: self.my_hue,
-                    sat: self.my_saturation,
+                    hue: self.data.my_hue,
+                    sat: self.data.my_saturation,
                     lat: position.lat,
                     lon: position.lon,
                 };
 
-                self.locations[self.my_peer_id] = Some((location, 0));
+                self.data.peer_locations[self.data.my_peer_id] = Some((location, 0));
             }
         }
     }
 
-    pub fn transmit(&mut self, time_segment_id: usize, peer_id: usize) {
+    pub fn transmit(&mut self, elapsed_ms: &ElapsedMs, time_segment_id: usize, peer_id: usize) {
         if self.current_mode == Mode::Transmit && self.radio.check_transmit().ok().unwrap() {
             // another transmission is in process. skip
             return;
@@ -168,7 +175,7 @@ where
             self.current_mode = Mode::Transmit;
         }
 
-        if let Some((location, broadcasted_at_id)) = &mut self.locations[peer_id] {
+        if let Some((location, broadcasted_at_id)) = &mut self.data.peer_locations[peer_id] {
             if *broadcasted_at_id <= time_segment_id {
                 // we've already broadcast this transaction
                 return;
@@ -176,13 +183,13 @@ where
 
             *broadcasted_at_id = time_segment_id;
 
-            let now = self.elapsed_ms.now();
+            let now = elapsed_ms.now();
 
             // TODO: reuse the message and serialzer
             let message = Message {
                 location: *location,
                 tx_ms: now,
-                tx_peer_id: self.my_peer_id,
+                tx_peer_id: self.data.my_peer_id,
                 tx_time: now,
             };
 
@@ -218,7 +225,7 @@ where
             let data: Result<Message, _> = serde_cbor::de::from_mut_slice(&mut buff[0..n]);
 
             if let Ok(message) = data {
-                if self.network_hash != message.location.network_hash {
+                if self.data.network_hash != message.location.network_hash {
                     // this packet is for a different network
                     return;
                 }
@@ -245,9 +252,5 @@ where
 
     pub fn silicon_version(&mut self) -> u8 {
         self.radio.silicon_version().ok().unwrap()
-    }
-
-    pub fn locations(&self) -> &PeerLocations {
-        &self.locations
     }
 }

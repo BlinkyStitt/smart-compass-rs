@@ -11,6 +11,7 @@ pub extern crate feather_m0 as hal;
 use hal::prelude::*;
 use usb_device::prelude::*;
 
+use accelerometer::Orientation;
 use alloc_cortex_m::CortexMHeap;
 use core::alloc::Layout;
 use hal::clock::GenericClockController;
@@ -19,7 +20,7 @@ use heapless::spsc::{Consumer, Producer, Queue};
 use numtoa::NumToA;
 use rtic::app;
 use smart_compass::time::{Duration, Time};
-use smart_compass::{lights, timers, MAX_PEERS};
+use smart_compass::{lights, timers};
 use usbd_serial::{SerialPort, USB_CLASS_CDC};
 use ws2812_timer_delay::Ws2812;
 
@@ -258,11 +259,12 @@ const APP: () = {
         // TODO: reset the usb device?
 
         // TODO: read config from the sd card
-        my_lights.set_my_peer_id(0);
 
         // TODO: get the time from the gps instead
         let mut fake_time = Time::try_from_hms(0, 0, 0).unwrap();
         let fake_magnetic_variation = 0.0;
+
+        let orientation = &Orientation::Unknown;
 
         loop {
             // this is useful to know if the program has crashed
@@ -270,12 +272,9 @@ const APP: () = {
                 red_led.toggle();
             }
 
-            if let Some((start, draw_time, total_time)) = my_lights.draw(
-                elapsed_ms,
-                Some(&fake_time),
-                Some(&fake_magnetic_variation),
-                &[None; MAX_PEERS],
-            ) {
+            if let Some((start, draw_time, total_time)) =
+                my_lights.draw(elapsed_ms, None, None, orientation)
+            {
                 // usb_queue_tx
                 //     .enqueue(LogMessage::DrawTime(start, draw_time, total_time))
                 //     .ok()

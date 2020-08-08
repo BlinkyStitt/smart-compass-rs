@@ -1,11 +1,12 @@
 use super::{colors, ANGLES, PHYSICAL_TO_FIBONACCI, RGB8};
 use crate::arduino::*;
-use crate::network::{PeerLocation, PeerLocations};
-use crate::{NUM_LEDS};
+use crate::location::GpsData;
+use crate::network::{NetworkData, PeerLocation};
+use crate::NUM_LEDS;
 use heapless::consts::*;
 use heapless::FnvIndexMap;
-use smart_leds::hsv::{hsv2rgb, Hsv};
 use micromath::F32Ext;
+use smart_leds::hsv::{hsv2rgb, Hsv};
 
 pub struct Compass {
     max_distance: f32,
@@ -28,28 +29,34 @@ impl Compass {
         &mut self,
         now: u32,
         leds: &mut [RGB8],
-        magnetic_variation: Option<&f32>,
-        my_peer_id: usize,
-        peer_locations: &PeerLocations,
+        gps_data: &GpsData,
+        network_data: &NetworkData,
     ) -> bool {
         // TODO: what units are magnetic_variation in?
+        let my_peer_id = network_data.my_peer_id;
 
-        // TODO: fill with black first otherwise lat_lon_to_angle_and_distance won't work right
+        // TODO: fill with black
 
-        if let Some((my_location, _)) = peer_locations[my_peer_id].as_ref() {
+        if let Some((my_location, _)) = network_data.peer_locations[my_peer_id].as_ref() {
             // store locations in a hashmap of vecs because multiple items might be on the same led
             // TODO: use MAX_PEERS for the size of this map
             let mut locations = FnvIndexMap::<_, _, U16>::new();
 
-            locations.insert(0usize, alloc::vec![my_location]).ok().unwrap();
+            locations
+                .insert(0usize, alloc::vec![my_location])
+                .ok()
+                .unwrap();
 
-            for peer_location in peer_locations.iter() {
+            for peer_location in network_data.peer_locations.iter() {
                 if let Some((peer_location, _)) = peer_location {
                     let peer_id = peer_location.peer_id;
 
                     if peer_id == my_peer_id {
                         continue;
                     }
+
+                    // TODO: check last_updated_at to make sure it isn't too old
+                    // if peer_location.last_updated_at;
 
                     let bearing = get_bearing(my_location, peer_location);
 
@@ -62,7 +69,10 @@ impl Compass {
 
                         location_vec.push(peer_location);
                     } else {
-                        locations.insert(i, alloc::vec![peer_location]).ok().unwrap();
+                        locations
+                            .insert(i, alloc::vec![peer_location])
+                            .ok()
+                            .unwrap();
                     }
                 }
             }
@@ -131,9 +141,11 @@ pub fn bearing_and_distance_to_id(bearing: f32, distance: f32, max_distance: f32
     let mut best_gap = u16::MAX;
     let mut best_i = 0;
 
-    let distance = constrain(distance, 0.0, max_distance);
-
+    // convert bearing from 0-360 to 0-255
     let bearing = map(bearing, 0.0, 360.0, 0.0, 255.0) as i8;
+
+    // convert distance from 0-max_distance to 0-255
+    let distance = constrain(distance, 0.0, max_distance);
     let distance = map(distance, 0.0, max_distance, 0.0, 255.0) as i8;
 
     for i in 0..NUM_LEDS {

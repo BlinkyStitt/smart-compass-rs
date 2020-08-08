@@ -10,6 +10,7 @@ default = ["usb"]
 usb = ["feather_m0/usb", "usb-device", "usbd-serial"]
 
 [dependencies]
+accelerometer = "0.11"
 alloc-cortex-m = "0.4"
 cortex-m = "*"
 cortex-m-rtic = "0.5"
