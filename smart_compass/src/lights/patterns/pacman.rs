@@ -2,7 +2,7 @@ use super::{Pattern, ANGLES, PHYSICAL_TO_FIBONACCI, RGB8};
 use crate::arduino::map;
 use crate::lights::focalintent::{trianglewave, Accum88};
 use core::cmp::Ordering;
-use core::f32::consts::{FRAC_2_PI, PI};
+use core::f32::consts::FRAC_2_PI;
 use smart_leds::colors::{BLACK, YELLOW};
 
 pub struct PacMan {

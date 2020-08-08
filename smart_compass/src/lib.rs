@@ -1,5 +1,7 @@
 #![no_std]
 
+extern crate alloc;
+
 pub mod arduino;
 pub mod battery;
 // pub mod compass;

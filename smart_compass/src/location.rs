@@ -269,10 +269,6 @@ impl<SerialTx: embedded_hal::serial::Write<u8>, EnablePin: OutputPin>
     pub fn write(&mut self, word: u8) {
         self.serial_tx.write(word).ok().unwrap();
     }
-
-    pub fn try_time(&self) -> Option<&time::Time> {
-        self.data.time.as_ref()
-    }
 }
 
 // TODO: the old code read the gps data on a timer. do we want that still?

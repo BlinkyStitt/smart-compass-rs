@@ -19,15 +19,15 @@ enum Mode {
 
 #[derive(Serialize, Deserialize, Copy, Clone)]
 pub struct PeerLocation {
-    network_hash: [u8; 16],
+    pub network_hash: [u8; 16],
 
-    peer_id: usize,
-    last_updated_at: u32,
-    hue: u8,
-    saturation: u8,
+    pub peer_id: usize,
+    pub last_updated_at: u32,
+    pub hue: u8,
+    pub sat: u8,
 
-    latitude: f32,
-    longitude: f32,
+    pub lat: f32,
+    pub lon: f32,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -47,6 +47,7 @@ type MyRadio<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay>
     PinError,
 >;
 
+/// the usize is the broadcasted_at_id that this was last broadcast at. i don't love this pattern, but it keeps us from broadcasting a message multiple times in a short timespan
 pub type PeerLocations = [Option<(PeerLocation, usize)>; MAX_PEERS];
 
 pub struct Network<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay> {
@@ -138,8 +139,8 @@ where
         match &mut self.locations[self.my_peer_id] {
             Some((compass_location, broadcast_at)) => {
                 compass_location.last_updated_at = last_updated_at;
-                compass_location.latitude = position.lat;
-                compass_location.longitude = position.lon;
+                compass_location.lat = position.lat;
+                compass_location.lon = position.lon;
 
                 *broadcast_at = 0;
             }
@@ -149,9 +150,9 @@ where
                     peer_id: self.my_peer_id,
                     last_updated_at,
                     hue: self.my_hue,
-                    saturation: self.my_saturation,
-                    latitude: position.lat,
-                    longitude: position.lon,
+                    sat: self.my_saturation,
+                    lat: position.lat,
+                    lon: position.lon,
                 };
 
                 self.locations[self.my_peer_id] = Some((location, 0));

@@ -221,6 +221,7 @@ const APP: () = {
             Ws2812::new(light_timer, light_pin),
             DEFAULT_BRIGHTNESS,
             &elapsed_ms,
+            None,
             FRAMES_PER_SECOND,
         );
 
@@ -256,7 +257,12 @@ const APP: () = {
 
         // TODO: reset the usb device?
 
+        // TODO: read config from the sd card
+        my_lights.set_my_peer_id(0);
+
+        // TODO: get the time from the gps instead
         let mut fake_time = Time::try_from_hms(0, 0, 0).unwrap();
+        let fake_magnetic_variation = 0.0;
 
         loop {
             // this is useful to know if the program has crashed
@@ -264,9 +270,12 @@ const APP: () = {
                 red_led.toggle();
             }
 
-            if let Some((start, draw_time, total_time)) =
-                my_lights.draw(elapsed_ms, Some(&fake_time), &[None; MAX_PEERS])
-            {
+            if let Some((start, draw_time, total_time)) = my_lights.draw(
+                elapsed_ms,
+                Some(&fake_time),
+                Some(&fake_magnetic_variation),
+                &[None; MAX_PEERS],
+            ) {
                 // usb_queue_tx
                 //     .enqueue(LogMessage::DrawTime(start, draw_time, total_time))
                 //     .ok()

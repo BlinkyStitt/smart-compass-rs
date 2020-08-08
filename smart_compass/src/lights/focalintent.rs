@@ -183,7 +183,6 @@ pub fn blur2d() {
 }
 */
 
-// TODO: generic type for leds? Maybe using Iter?
 pub fn fade_to_black_by(leds: &mut [RGB8], amount: u8) {
     for led in leds.iter_mut() {
         // TODO: is there a better way to do saturating subtraction for leds?

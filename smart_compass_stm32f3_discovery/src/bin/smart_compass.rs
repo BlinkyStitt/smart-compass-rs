@@ -349,6 +349,7 @@ const APP: () = {
             Ws2812::new(lights_spi),
             DEFAULT_BRIGHTNESS,
             &elapsed_ms,
+            None,
             FRAMES_PER_SECOND,
         );
 
@@ -409,7 +410,9 @@ const APP: () = {
         elapsed_ms.block(1500);
 
         // TODO: read this from the SD
-        let my_peer_id: usize = 1;
+        let my_peer_id = 0;
+
+        my_lights.set_my_peer_id(my_peer_id);
 
         // configure gps
         // get the version (PMTK_Q_RELEASE)
@@ -459,37 +462,44 @@ const APP: () = {
 
             my_lights.set_orientation(orientation);
 
-            my_lights.draw(
-                elapsed_ms,
-                my_gps.try_time(),
-                shared_spi_resources.network.locations(),
-            );
+            {
+                let gps_data = my_gps.data();
+
+                my_lights.draw(
+                    elapsed_ms,
+                    gps_data.time.as_ref(),
+                    gps_data.magnetic_variation.as_ref(),
+                    shared_spi_resources.network.locations(),
+                );
+            }
+
+            let mut gps_data;
 
             if my_gps.receive() {
                 hprintln!("GPS received a sentence").unwrap();
 
-                let gps_data = my_gps.data();
+                gps_data = my_gps.data();
 
-                // TODO: get the current time in seconds
-                let last_updated_at: u32 = 0;
-
-                if let Some(position) = &gps_data.position {
-                    shared_spi_resources
-                        .network
-                        .save_my_location(last_updated_at, position);
+                if let Some(last_updated_at) = gps_data.epoch_seconds {
+                    if let Some(position) = &gps_data.position {
+                        shared_spi_resources
+                            .network
+                            .save_my_location(last_updated_at, position);
+                    }
                 }
+            } else {
+                gps_data = my_gps.data();
             }
 
             my_lights.draw(
                 elapsed_ms,
-                my_gps.try_time(),
+                gps_data.time.as_ref(),
+                gps_data.magnetic_variation.as_ref(),
                 shared_spi_resources.network.locations(),
             );
 
             if my_gps.has_fix() {
                 hprintln!("GPS has fix").unwrap();
-
-                let gps_data = my_gps.data();
 
                 if let Some(epoch_seconds) = gps_data.epoch_seconds {
                     // TODO: the seconds being a float is really annoying. i don't want to bring floats into this
@@ -503,10 +513,12 @@ const APP: () = {
                     // radio transmit or receive depending on the time_segment_id
                     // TODO: spend 50% the time with the radio asleep?
                     if broadcasting_peer_id == my_peer_id {
+                        // my turn to broadcast
                         shared_spi_resources
                             .network
                             .transmit(time_segment_id, broadcasted_peer_id);
                     } else {
+                        // listen for someone else
                         shared_spi_resources.network.try_receive();
                     }
                 } else {
@@ -523,11 +535,12 @@ const APP: () = {
             // draw again because the using radio can take a while
             my_lights.draw(
                 elapsed_ms,
-                my_gps.try_time(),
+                gps_data.time.as_ref(),
+                gps_data.magnetic_variation.as_ref(),
                 shared_spi_resources.network.locations(),
             );
 
-            // TODO: fastLED.delay equivalent to improve brightness? make sure it doesn't block the radios!
+            // TODO: fastLED.delay equivalent to improve brightness at low levels? make sure it doesn't block the radios!
         }
     }
 };

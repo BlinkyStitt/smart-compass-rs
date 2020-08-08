@@ -12,10 +12,12 @@ use smart_leds::{brightness, gamma, SmartLedsWrite, RGB8};
 pub struct Lights<SmartLeds: SmartLedsWrite> {
     brightness: u8,
     framerate: EveryNMillis,
-    leds: SmartLeds,
-    orientation: Orientation,
     last_orientation: Orientation,
+    leds: SmartLeds,
+    my_peer_id: Option<usize>,
+    orientation: Orientation,
 
+    // TODO: use a Vec?
     led_buffer: [RGB8; NUM_LEDS],
 
     // TODO: think about this more
@@ -36,6 +38,7 @@ where
         leds: SmartLeds,
         brightness: u8,
         elapsed_ms: &ElapsedMs,
+        my_peer_id: Option<usize>,
         frames_per_second: u8,
     ) -> Self {
         let light_data: [RGB8; NUM_LEDS] = [RGB8::default(); NUM_LEDS];
@@ -47,7 +50,7 @@ where
         let orientation = Orientation::Unknown;
         let last_orientation = Orientation::Unknown;
 
-        let pattern_compass = patterns::Compass {};
+        let pattern_compass = patterns::Compass::new(3000.0);
         let pattern_clock = patterns::Clock::new(240);
         let pattern_pacman = patterns::PacMan::new();
         let pattern_pride = patterns::Pride::new();
@@ -61,6 +64,7 @@ where
             last_orientation,
             led_buffer: light_data,
             leds,
+            my_peer_id,
             orientation,
             pattern_compass,
             pattern_clock,
@@ -76,6 +80,10 @@ where
         self.brightness = new_brightness;
     }
 
+    pub fn set_my_peer_id(&mut self, my_peer_id: usize) {
+        self.my_peer_id = Some(my_peer_id);
+    }
+
     pub fn set_orientation(&mut self, new_orientation: Orientation) {
         self.orientation = new_orientation;
     }
@@ -85,6 +93,7 @@ where
         &mut self,
         elapsed_ms: &ElapsedMs,
         time: Option<&time::Time>,
+        magnetic_variation: Option<&f32>,
         peer_locations: &PeerLocations,
     ) {
         // TODO: match or something to pick between a bunch of different patterns
@@ -101,10 +110,20 @@ where
                 // render compass
                 let now = elapsed_ms.now();
 
-                // TODO: if no peer locations, draw the loading patteern
+                // TODO: if no peer locations, draw the loading pattern
 
-                self.pattern_compass
-                    .buffer(now, &mut self.led_buffer, peer_locations);
+                if let Some(my_peer_id) = self.my_peer_id {
+                    self.pattern_compass.buffer(
+                        now,
+                        &mut self.led_buffer,
+                        magnetic_variation,
+                        my_peer_id,
+                        peer_locations,
+                    );
+                } else {
+                    // TODO: pattern for loading
+                    self.pattern_sunflower.buffer(now, &mut self.led_buffer);
+                }
             }
             Orientation::PortraitDown | Orientation::Unknown => {
                 // render clock
@@ -112,9 +131,9 @@ where
                     self.pattern_clock
                         .buffer(elapsed_ms, &mut self.led_buffer, time);
                 } else {
-                    // TODO: pattern for loading
                     let now = elapsed_ms.now();
 
+                    // TODO: pattern for loading
                     self.pattern_sunflower.buffer(now, &mut self.led_buffer);
                 }
             }
@@ -241,6 +260,7 @@ where
         &mut self,
         elapsed_ms: &ElapsedMs,
         time: Option<&time::Time>,
+        magnetic_variation: Option<&f32>,
         peer_locations: &PeerLocations,
     ) -> Option<(u32, u32, u32)> {
         let start = self.framerate.ready(elapsed_ms).ok()?;
@@ -249,7 +269,7 @@ where
 
         // fill the light buffer
         // TODO: make it possible to call buffer seperate from draw
-        self._buffer(elapsed_ms, time, peer_locations);
+        self._buffer(elapsed_ms, time, magnetic_variation, peer_locations);
 
         // display
         // TODO! some drivers disable interrupts while they draw! this means we won't have an accurate ELAPSED_MS!
