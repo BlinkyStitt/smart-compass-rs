@@ -1,43 +1,34 @@
-use super::{colors, ANGLES, PHYSICAL_TO_FIBONACCI, RGB8};
+use super::{ANGLES, PHYSICAL_TO_FIBONACCI, RGB8};
 use crate::arduino::*;
-use crate::location::GpsData;
+use crate::lights::focalintent::fade_to_black_by;
 use crate::network::{NetworkData, PeerLocation};
 use crate::NUM_LEDS;
+use derive_more::Constructor;
 use heapless::consts::*;
 use heapless::FnvIndexMap;
 use micromath::F32Ext;
 use smart_leds::hsv::{hsv2rgb, Hsv};
 
+#[derive(Constructor)]
 pub struct Compass {
-    max_distance: f32,
+    pub background_fade: u8,
+    pub max_distance: f32,
+    /// if two peers are next to eachother, we cycle between their colors
+    pub ms_per_color: u32,
 }
 
 impl Compass {
-    pub fn new(max_distance: f32) -> Self {
-        Self { max_distance }
-    }
-
-    pub fn set_max_distance(&mut self, max_distance: f32) {
-        self.max_distance = max_distance;
-    }
-
-    pub fn is_ready(&self) -> bool {
-        todo!("true when we have a magnetic variation and recent peer locations");
-    }
-
     pub fn buffer(
         &mut self,
         now: u32,
         leds: &mut [RGB8],
-        gps_data: &GpsData,
         network_data: &NetworkData,
-    ) -> bool {
-        // TODO: what units are magnetic_variation in?
-        let my_peer_id = network_data.my_peer_id;
+    ) -> Option<()> {
+        let my_peer_id = &network_data.my_peer_id;
 
-        // TODO: fill with black
+        fade_to_black_by(leds, self.background_fade);
 
-        if let Some((my_location, _)) = network_data.peer_locations[my_peer_id].as_ref() {
+        if let Some((my_location, _)) = network_data.peer_locations[*my_peer_id].as_ref() {
             // store locations in a hashmap of vecs because multiple items might be on the same led
             // TODO: use MAX_PEERS for the size of this map
             let mut locations = FnvIndexMap::<_, _, U16>::new();
@@ -49,9 +40,8 @@ impl Compass {
 
             for peer_location in network_data.peer_locations.iter() {
                 if let Some((peer_location, _)) = peer_location {
-                    let peer_id = peer_location.peer_id;
-
-                    if peer_id == my_peer_id {
+                    if peer_location.peer_id == *my_peer_id {
+                        // we already drew ourselves at the center
                         continue;
                     }
 
@@ -64,9 +54,7 @@ impl Compass {
 
                     let i = bearing_and_distance_to_id(bearing, distance, self.max_distance);
 
-                    if locations.contains_key(&i) {
-                        let location_vec = locations.get_mut(&i).unwrap();
-
+                    if let Some(location_vec) = locations.get_mut(&i) {
                         location_vec.push(peer_location);
                     } else {
                         locations
@@ -78,22 +66,30 @@ impl Compass {
             }
 
             for (led_id, peer_ids) in locations.iter() {
-                if peer_ids.len() == 1 {
-                    // TODO: save the color in the peer location?
-                    let color = hsv2rgb(Hsv {
-                        hue: peer_ids[0].hue,
-                        sat: peer_ids[0].sat,
-                        val: 255,
-                    });
-
-                    leds[*led_id] = color;
+                let drawn_peer_id = if peer_ids.len() == 1 {
+                    peer_ids[0]
                 } else {
-                    todo!("cycle between multiple lights");
-                }
+                    // cycle between multiple colors
+                    let ms_per_color: u32 = 400;
+
+                    let color_id = (now / ms_per_color) as usize % peer_ids.len();
+
+                    peer_ids[color_id]
+                };
+
+                // TODO: save the color in the peer location?
+                let color = hsv2rgb(Hsv {
+                    hue: drawn_peer_id.hue,
+                    sat: drawn_peer_id.sat,
+                    val: 255,
+                });
+
+                // TODO: nblend
+                leds[*led_id] = color;
             }
         }
 
-        true
+        Some(())
     }
 }
 
@@ -145,6 +141,7 @@ pub fn bearing_and_distance_to_id(bearing: f32, distance: f32, max_distance: f32
     let bearing = map(bearing, 0.0, 360.0, 0.0, 255.0) as i8;
 
     // convert distance from 0-max_distance to 0-255
+    // TODO: support negative distances?
     let distance = constrain(distance, 0.0, max_distance);
     let distance = map(distance, 0.0, max_distance, 0.0, 255.0) as i8;
 

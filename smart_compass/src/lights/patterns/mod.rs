@@ -97,5 +97,6 @@ const ANGLES: [u8; NUM_LEDS] = [
 pub trait Pattern {
     /// Draw your pattern
     /// Patterns generally work best when they use the time rather than the frame count in their calculations
+    /// Returns None if unable to buffer the pattern and Some if it was
     fn buffer(&mut self, now: u32, leds: &mut [RGB8]);
 }

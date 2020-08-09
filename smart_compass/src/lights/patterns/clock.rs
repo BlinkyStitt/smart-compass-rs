@@ -24,7 +24,12 @@ impl Clock {
         }
     }
 
-    pub fn buffer(&mut self, _elapsed_ms: &ElapsedMs, leds: &mut [RGB8], time: &time::Time) {
+    pub fn buffer(
+        &mut self,
+        _elapsed_ms: &ElapsedMs,
+        leds: &mut [RGB8],
+        time: &time::Time,
+    ) -> Option<()> {
         let second = time.second() as f32;
 
         // float minute = timeClient.getMinutes() + (second / 60.0);
@@ -82,6 +87,8 @@ impl Clock {
         );
 
         leds[0] = colors::RED;
+
+        Some(())
     }
 }
 

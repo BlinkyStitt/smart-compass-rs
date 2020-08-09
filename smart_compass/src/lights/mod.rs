@@ -50,7 +50,7 @@ where
 
         let last_orientation = Orientation::Unknown;
 
-        let pattern_compass = patterns::Compass::new(3000.0);
+        let pattern_compass = patterns::Compass::new(3, 3000.0, 400);
         let pattern_clock = patterns::Clock::new(240);
         let pattern_pacman = patterns::PacMan::new();
         let pattern_pride = patterns::Pride::new();
@@ -74,57 +74,53 @@ where
         }
     }
 
+    /// if try_buffer fails, call this
+    fn _buffer_loading(&mut self, elapsed_ms: &ElapsedMs) {
+        let now = elapsed_ms.now();
+
+        // TODO: what pattern(s) should we use?
+        self.pattern_sunflower.buffer(now, &mut self.led_buffer);
+    }
+
     // fill the buffer with the light data
-    fn _buffer(
+    fn _try_buffer(
         &mut self,
         elapsed_ms: &ElapsedMs,
         orientation: &Orientation,
         gps_data: Option<&GpsData>,
         network_data: Option<&NetworkData>,
-    ) {
+    ) -> Option<()> {
         // TODO: match or something to pick between a bunch of different patterns
         let orientation_changed = self.last_orientation == *orientation;
 
         // TODO: have a Pattern state machine that handles orientation and transitionary animations
-        match orientation {
+        let result = match orientation {
             Orientation::FaceDown => {
-                // render flashlight
+                // flashlight
                 todo!("flashlight pattern");
             }
             Orientation::FaceUp => {
-                // TODO: DEBUGGING! MOVE `Orientation::Unknown` to where it belongs
-                // render compass
+                // compass
+
+                let network_data = network_data?;
+
+                if network_data.my_peer_id == 0 {
+                    return None;
+                }
+
+                // TODO: if no peer locations, return None
+
                 let now = elapsed_ms.now();
 
-                // TODO: if no peer locations, draw the loading pattern
-
-                let network_data = network_data.unwrap();
-
-                if network_data.my_peer_id != 0 {
-                    self.pattern_compass.buffer(
-                        now,
-                        &mut self.led_buffer,
-                        gps_data.unwrap(),
-                        network_data,
-                    );
-                } else {
-                    // TODO: pattern for loading
-                    self.pattern_sunflower.buffer(now, &mut self.led_buffer);
-                }
+                self.pattern_compass
+                    .buffer(now, &mut self.led_buffer, network_data)
             }
             Orientation::PortraitDown | Orientation::Unknown => {
-                let gps_data = gps_data.unwrap();
+                // clock
+                let gps_time = &gps_data?.time?;
 
-                // render clock
-                if let Some(time) = &gps_data.time {
-                    self.pattern_clock
-                        .buffer(elapsed_ms, &mut self.led_buffer, time);
-                } else {
-                    let now = elapsed_ms.now();
-
-                    // TODO: pattern for loading
-                    self.pattern_sunflower.buffer(now, &mut self.led_buffer);
-                }
+                self.pattern_clock
+                    .buffer(elapsed_ms, &mut self.led_buffer, gps_time)
             }
             Orientation::LandscapeUp | Orientation::LandscapeDown | Orientation::PortraitUp => {
                 // render pretty lights
@@ -149,12 +145,16 @@ where
                 // self.pattern_waves.buffer(now, &mut self.led_buffer);
                 // self.pattern_test_map.buffer(now, &mut self.led_buffer);
                 self.pattern_pacman.buffer(now, &mut self.led_buffer);
+
+                Some(())
             }
         };
 
         if orientation_changed {
             self.last_orientation = *orientation;
         }
+
+        Some(())
     }
 
     #[cfg(feature = "lights_interrupt_free")]
@@ -207,6 +207,7 @@ where
     /// TODO: should this fill the buffer with black, too?
     /// TODO: I think FastLED had helpers to do this quickly
     pub fn draw_black(&mut self, elapsed_ms: &ElapsedMs) {
+        // TODO: use a fill helper instead
         focalintent::fade_to_black_by(&mut self.led_buffer, 255);
 
         self._draw(elapsed_ms);
@@ -258,7 +259,12 @@ where
 
         // fill the light buffer
         // TODO: make it possible to call buffer seperate from draw
-        self._buffer(elapsed_ms, orientation, gps, network);
+        if self
+            ._try_buffer(elapsed_ms, orientation, gps, network)
+            .is_none()
+        {
+            self._buffer_loading(elapsed_ms)
+        }
 
         // display
         // TODO! some drivers disable interrupts while they draw! this means we won't have an accurate ELAPSED_MS!
