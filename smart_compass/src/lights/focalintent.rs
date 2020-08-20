@@ -124,10 +124,6 @@ where
 
 /// beatsin generates a 16-bit sine wave at a given BPM,
 /// that oscillates within a given range.
-/// For this function, BPM MUST BE SPECIFIED as
-/// a Q8.8 fixed-point value; e.g. 120BPM must be
-/// specified as 120*256 = 30720.
-/// If you just want to specify "120", use beatsin16 or beatsin8.
 pub fn beatsin<BPM>(bpm: BPM, low: u16, high: u16, now: u32, phase_offset: u16) -> u16
 where
     BPM: ToMillis<u32>,

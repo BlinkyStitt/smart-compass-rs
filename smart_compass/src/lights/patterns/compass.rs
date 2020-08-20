@@ -69,15 +69,13 @@ impl Compass {
                 let drawn_peer_id = if peer_ids.len() == 1 {
                     peer_ids[0]
                 } else {
-                    // cycle between multiple colors
-                    let ms_per_color: u32 = 400;
-
-                    let color_id = (now / ms_per_color) as usize % peer_ids.len();
+                    // cycle between multiple
+                    let color_id = (now / self.ms_per_color) as usize % peer_ids.len();
 
                     peer_ids[color_id]
                 };
 
-                // TODO: save the color in the peer location?
+                // TODO: save the color in the peer_location instead of doing this conversion every time
                 let color = hsv2rgb(Hsv {
                     hue: drawn_peer_id.hue,
                     sat: drawn_peer_id.sat,
@@ -133,15 +131,21 @@ fn get_haversine_distance(my_location: &PeerLocation, other_location: &PeerLocat
     return R * c;
 }
 
-pub fn bearing_and_distance_to_id(bearing: f32, distance: f32, max_distance: f32) -> usize {
+pub fn bearing_and_distance_to_id(mut bearing: f32, mut distance: f32, max_distance: f32) -> usize {
     let mut best_gap = u16::MAX;
     let mut best_i = 0;
 
+    if distance.is_sign_negative() {
+        // flip the bearing
+        bearing = (bearing + 180.0) % 360.0;
+        distance = distance.abs();
+    }
+
     // convert bearing from 0-360 to 0-255
+    // TODO: off by one error here?
     let bearing = map(bearing, 0.0, 360.0, 0.0, 255.0) as i8;
 
     // convert distance from 0-max_distance to 0-255
-    // TODO: support negative distances?
     let distance = constrain(distance, 0.0, max_distance);
     let distance = map(distance, 0.0, max_distance, 0.0, 255.0) as i8;
 

@@ -23,6 +23,7 @@ pub struct Lights<SmartLeds: SmartLedsWrite> {
 
     // TODO: think about this more
     pattern_clock: patterns::Clock,
+    pattern_lines: patterns::Lines,
     pattern_pacman: patterns::PacMan,
     pattern_pride: patterns::Pride,
     pattern_sunflower: patterns::Sunflower,
@@ -52,6 +53,7 @@ where
 
         let pattern_compass = patterns::Compass::new(3, 3000.0, 400);
         let pattern_clock = patterns::Clock::new(240);
+        let pattern_lines = patterns::Lines::new(100);
         let pattern_pacman = patterns::PacMan::new();
         let pattern_pride = patterns::Pride::new();
         let pattern_sunflower = patterns::Sunflower::new();
@@ -66,6 +68,7 @@ where
             leds,
             pattern_compass,
             pattern_clock,
+            pattern_lines,
             pattern_pacman,
             pattern_pride,
             pattern_sunflower,
@@ -115,14 +118,14 @@ where
                 self.pattern_compass
                     .buffer(now, &mut self.led_buffer, network_data)
             }
-            Orientation::PortraitDown | Orientation::Unknown => {
+            Orientation::PortraitDown => {
                 // clock
                 let gps_time = &gps_data?.time?;
 
                 self.pattern_clock
                     .buffer(elapsed_ms, &mut self.led_buffer, gps_time)
             }
-            Orientation::LandscapeUp | Orientation::LandscapeDown | Orientation::PortraitUp => {
+            Orientation::LandscapeUp | Orientation::LandscapeDown | Orientation::PortraitUp | Orientation::Unknown => {
                 // render pretty lights
                 // TODO: lots of different patterns to choose from
                 let now = elapsed_ms.now();
@@ -140,12 +143,16 @@ where
                     );
                 }
                 */
-                // self.pattern_sunflower.buffer(now, &mut self.led_buffer);
+                self.pattern_sunflower.buffer(now, &mut self.led_buffer);
+                // self.pattern_pacman.buffer(now, &mut self.led_buffer);
+
+                // TODO: make these work
+                // TODO: this is crashig
+                // self.pattern_test_map.buffer(now, &mut self.led_buffer);
+                // self.pattern_lines.buffer(now, &mut self.led_buffer);
                 // self.pattern_pride.buffer(now, &mut self.led_buffer);
                 // self.pattern_waves.buffer(now, &mut self.led_buffer);
-                // self.pattern_test_map.buffer(now, &mut self.led_buffer);
-                self.pattern_pacman.buffer(now, &mut self.led_buffer);
-
+                
                 Some(())
             }
         };
@@ -154,7 +161,7 @@ where
             self.last_orientation = *orientation;
         }
 
-        Some(())
+        result
     }
 
     #[cfg(feature = "lights_interrupt_free")]

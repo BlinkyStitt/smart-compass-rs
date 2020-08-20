@@ -19,6 +19,7 @@ impl TestMap {
 }
 
 impl Pattern for TestMap {
+    /// TODO: this is wrong. it is crashing
     fn buffer(&mut self, _now: u32, leds: &mut [RGB8]) {
         fade_to_black_by(leds, 64);
 
